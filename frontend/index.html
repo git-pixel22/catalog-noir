@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CATALOG NOIR</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #050508; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+    canvas { image-rendering: auto; display: block; }
+  </style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.87.0/dist/phaser.min.js"></script>
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const BACKEND = "";
+const W = 900, H = 600;
+
+// Real FQNs from the sandbox
+const NODE_DEFS = [
+  {
+    key: "dim_customers",
+    fqn: "acme_nexus_analytics.ANALYTICS.MARTS.dim_customers",
+    label: "dim_customers",
+    role: "victim",
+    x: 450, y: 330,
+    color: 0xe05050,
+    badge: "VICTIM",
+    evidenceTitle: "VICTIM FILE",
+    evidenceText: "dim_customers — Tier 1 Snowflake table.\nCustomer Key Uniqueness test aborted 14:03.\nOwner: Nick Acosta. Sales domain.",
+  },
+  {
+    key: "stg_customers",
+    fqn: "acme_nexus_analytics.ANALYTICS.STAGING.stg_customers",
+    label: "stg_customers",
+    role: "suspect",
+    x: 240, y: 200,
+    color: 0xe0c040,
+    badge: "SUSPECT",
+    evidenceTitle: "GHOST OWNERSHIP",
+    evidenceText: "stg_customers owner: 'test'\nNo real person claimed this table.\nTransformation logic unaudited.",
+  },
+  {
+    key: "customers",
+    fqn: "acme_nexus_raw_data.acme_raw.crm.customers",
+    label: "customers (raw)",
+    role: "suspect",
+    x: 130, y: 390,
+    color: 0xe0c040,
+    badge: "SOURCE",
+    evidenceTitle: "UPSTREAM TEST",
+    evidenceText: "customers_customer_id_unique test exists\non raw MySQL table.\nNo dedup guarantee in staging layer.",
+  },
+  {
+    key: "customer_metrics",
+    fqn: "acme_nexus_analytics.ANALYTICS.METRICS.customer_metrics",
+    label: "customer_metrics",
+    role: "downstream",
+    x: 640, y: 200,
+    color: 0x5088e0,
+    badge: "DOWNSTREAM",
+    evidenceTitle: "CONTAMINATED METRICS",
+    evidenceText: "customer_metrics feeds from dim_customers.\nDuplicate customer_ids inflate aggregates.\nA victim of the crime, not the cause.",
+  },
+];
+
+// Edges: from key -> to key
+const EDGE_DEFS = [
+  { from: "customers",        to: "stg_customers",   cols: "customer_id" },
+  { from: "stg_customers",   to: "dim_customers",    cols: "customer_id" },
+  { from: "dim_customers",   to: "customer_metrics", cols: "revenue,orders" },
+];
+
+const SCRIPTED_DIALOGUE = {
+  dim_customers: [
+    "I'm dim_customers. Tier 1. The test just... aborted at 14:03.",
+    "Owner is Nick Acosta. But nobody's been watching me closely enough.",
+    "Something upstream changed. I can feel it in my customer_id column.",
+  ],
+  stg_customers: [
+    "I'm stg_customers. I clean up the raw data before it reaches dim_customers.",
+    "My owner? It says 'test'. That's just... a placeholder nobody claimed.",
+    "I have 7 columns. I pass customer_id through. What comes in goes out.",
+  ],
+  customers: [
+    "I'm the raw customers table. MySQL. Been here since the beginning.",
+    "My owner is Ashish Gupta. He set up the CRM ingestion years ago.",
+    "There's a uniqueness test on my customer_id. It was passing. Last I checked.",
+  ],
+  customer_metrics: [
+    "I'm downstream. I just consume dim_customers' output for the dashboards.",
+    "If dim_customers has duplicates, my revenue numbers are wrong too.",
+    "I didn't cause this. I'm a victim too. Check upstream.",
+  ],
+};
+
+const GUILTY_KEY = "stg_customers";
+const GUILTY_COLUMN = "customer_id";
+const GUILTY_REASON = "stg_customers has no real owner and no deduplication\nin its transformation logic. Duplicate customer_ids\nflowed from raw MySQL into the Snowflake staging layer\nunchecked — then poisoned dim_customers at 14:03.";
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const nodeByKey = {};
+NODE_DEFS.forEach(n => nodeByKey[n.key] = n);
+
+function hexColor(hex) {
+  return `#${hex.toString(16).padStart(6, "0")}`;
+}
+
+function drawGrid(scene, alpha = 0.35) {
+  const g = scene.add.graphics();
+  g.lineStyle(1, 0x1a2040, alpha);
+  for (let x = 0; x < W; x += 40) g.lineBetween(x, 0, x, H);
+  for (let y = 0; y < H; y += 40) g.lineBetween(0, y, W, y);
+  return g;
+}
+
+function typewriterText(scene, text, textObj, speed = 28, onDone) {
+  let i = 0;
+  textObj.setText("");
+  if (scene._typeTimer) scene._typeTimer.remove();
+  scene._typeTimer = scene.time.addEvent({
+    delay: speed,
+    repeat: text.length - 1,
+    callback: () => {
+      textObj.setText(text.slice(0, ++i));
+      if (i >= text.length && onDone) onDone();
+    },
+  });
+}
+
+// ─── SCENE: BRIEFING ─────────────────────────────────────────────────────────
+class BriefingScene extends Phaser.Scene {
+  constructor() { super("BriefingScene"); }
+
+  create() {
+    drawGrid(this, 0.25);
+
+    // Vignette effect
+    const vg = this.add.graphics();
+    vg.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.8, 0.8, 0, 0);
+    vg.fillRect(0, 0, W, H / 3);
+
+    this.add.text(W / 2, 55, "CATALOG NOIR", {
+      fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, 98, "Case File 001  |  The Case of the Duplicate Customer", {
+      fontFamily: "monospace", fontSize: "13px", color: "#707090",
+    }).setOrigin(0.5);
+
+    // Case file card — tall enough for all content
+    const cardY = 118, cardH = 356, cardW = 620;
+    const card = this.add.graphics();
+    card.lineStyle(1, 0x404060, 1);
+    card.fillStyle(0x0c0c18, 1);
+    card.fillRect(W / 2 - cardW / 2, cardY, cardW, cardH);
+    card.strokeRect(W / 2 - cardW / 2, cardY, cardW, cardH);
+    card.lineStyle(1, 0xe8c97e, 0.5);
+    card.strokeRect(W / 2 - cardW / 2 + 4, cardY + 4, cardW - 8, cardH - 8);
+
+    this.add.text(W / 2 - cardW / 2 + 20, cardY + 16, "INCIDENT REPORT  //  14:03 UTC", {
+      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+    });
+
+    const lines = [
+      "Asset:   acme_nexus_analytics.ANALYTICS.MARTS.dim_customers",
+      "Type:    Snowflake table  |  Tier 1  |  Sales domain",
+      "Owner:   Nick Acosta",
+      "Columns: 12",
+      "",
+      "Test:    Customer Key Uniqueness",
+      "Status:  ABORTED",
+      "Error:   Duplicate customer_id values detected in production.",
+      "",
+      "Upstream lineage: stg_customers  <-  customers (MySQL/CRM)",
+      "",
+      "This is a Tier 1 asset. Every duplicate propagates",
+      "to customer_metrics, revenue dashboards, and ML models.",
+      "Find out who's responsible. Find out what they did.",
+    ];
+
+    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 40, "", {
+      fontFamily: "monospace", fontSize: "12px", color: "#c0c0d8", lineSpacing: 5,
+    });
+
+    const fullText = lines.join("\n");
+    let i = 0;
+    this.time.addEvent({
+      delay: 14,
+      repeat: fullText.length - 1,
+      callback: () => { bodyText.setText(fullText.slice(0, ++i)); },
+    });
+
+    const btnY = cardY + cardH + 18;
+
+    // Begin button
+    const btnBg = this.add.graphics();
+    btnBg.fillStyle(0xe8c97e, 1);
+    btnBg.fillRect(W / 2 - 120, btnY, 240, 44);
+
+    this.add.text(W / 2, btnY + 22, "BEGIN INVESTIGATION", {
+      fontFamily: "monospace", fontSize: "13px", color: "#0a0a14",
+    }).setOrigin(0.5);
+
+    const btnZone = this.add.zone(W / 2, btnY + 22, 240, 44).setInteractive({ useHandCursor: true });
+    btnZone.on("pointerover", () => btnBg.clear().fillStyle(0xffd88a, 1).fillRect(W / 2 - 120, btnY, 240, 44));
+    btnZone.on("pointerout",  () => btnBg.clear().fillStyle(0xe8c97e, 1).fillRect(W / 2 - 120, btnY, 240, 44));
+    btnZone.on("pointerdown", () => this.scene.start("MapScene"));
+
+    this.add.text(W / 2, btnY + 56, "Interview suspects. Collect evidence. Name the culprit.", {
+      fontFamily: "monospace", fontSize: "12px", color: "#b0b0c8",
+    }).setOrigin(0.5);
+  }
+}
+
+// ─── SCENE: MAP ──────────────────────────────────────────────────────────────
+class MapScene extends Phaser.Scene {
+  constructor() { super("MapScene"); }
+
+  init() {
+    this.evidence = [];
+    this.dialogueOpen = false;
+    this.liveData = {};
+    this.dialogueLines = {};
+    this.lineIndex = {};
+  }
+
+  create() {
+    drawGrid(this, 0.3);
+
+    // Fetch live data for all nodes (non-blocking)
+    NODE_DEFS.forEach(n => this._fetchNodeData(n));
+
+    // Header
+    this.add.text(W / 2, 22, "CATALOG NOIR", {
+      fontFamily: "monospace", fontSize: "20px", color: "#e8c97e", letterSpacing: 4,
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, 46, "Investigation Map  |  Case 001", {
+      fontFamily: "monospace", fontSize: "11px", color: "#9090b8",
+    }).setOrigin(0.5);
+
+    // Draw edges
+    const edgeGfx = this.add.graphics();
+    EDGE_DEFS.forEach(e => this._drawEdge(edgeGfx, e));
+
+    // Draw nodes
+    this.nodeGroups = {};
+    NODE_DEFS.forEach(n => {
+      this.nodeGroups[n.key] = this._buildNode(n);
+    });
+
+    // Evidence panel (right side)
+    this._buildEvidencePanel();
+
+    // Status bar
+    this.statusBar = this.add.text(W / 2, H - 14, "Click a node to interview. Collect evidence to build your case.", {
+      fontFamily: "monospace", fontSize: "11px", color: "#a0a0c0",
+    }).setOrigin(0.5);
+
+    // Accusation button (hidden until 2+ evidence)
+    this._buildAccuseButton();
+
+    // Dialogue overlay (hidden)
+    this._buildDialogueBox();
+  }
+
+  _drawEdge(g, edgeDef) {
+    const from = nodeByKey[edgeDef.from];
+    const to   = nodeByKey[edgeDef.to];
+    const color = 0x304060;
+    g.lineStyle(2, color, 0.8);
+
+    // Arrow line
+    g.lineBetween(from.x, from.y, to.x, to.y);
+
+    // Arrowhead at 'to' node edge
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const ax = to.x - Math.cos(angle) * 62;
+    const ay = to.y - Math.sin(angle) * 42;
+    const arrowSize = 8;
+    g.fillStyle(color, 0.9);
+    g.fillTriangle(
+      ax + Math.cos(angle) * arrowSize, ay + Math.sin(angle) * arrowSize,
+      ax + Math.cos(angle + 2.4) * arrowSize, ay + Math.sin(angle + 2.4) * arrowSize,
+      ax + Math.cos(angle - 2.4) * arrowSize, ay + Math.sin(angle - 2.4) * arrowSize,
+    );
+
+    // Column label on edge midpoint
+    const mx = (from.x + to.x) / 2;
+    const my = (from.y + to.y) / 2;
+    this.add.text(mx, my - 10, edgeDef.cols, {
+      fontFamily: "monospace", fontSize: "9px", color: "#5070a0",
+    }).setOrigin(0.5);
+  }
+
+  _buildNode(nodeDef) {
+    const { x, y, color, label, badge, role } = nodeDef;
+    const bw = 130, bh = 80;
+    const bx = x - bw / 2, by = y - bh / 2;
+
+    const g = this.add.graphics();
+
+    // Glow
+    g.fillStyle(color, 0.08);
+    g.fillRect(bx - 8, by - 8, bw + 16, bh + 16);
+
+    // Body
+    g.fillStyle(0x0b0b18, 1);
+    g.fillRect(bx, by, bw, bh);
+    g.lineStyle(2, color, 1);
+    g.strokeRect(bx, by, bw, bh);
+
+    // Badge strip
+    g.fillStyle(color, 0.9);
+    g.fillRect(bx, by, bw, 18);
+
+    this.add.text(x, by + 9, badge, {
+      fontFamily: "monospace", fontSize: "10px", color: "#080814",
+    }).setOrigin(0.5);
+
+    const labelText = this.add.text(x, y + 4, label, {
+      fontFamily: "monospace", fontSize: "11px", color: "#e0e0f0",
+    }).setOrigin(0.5);
+
+    const subText = this.add.text(x, y + 20, "...", {
+      fontFamily: "monospace", fontSize: "9px", color: "#7878a0",
+    }).setOrigin(0.5);
+
+    if (role === "victim") {
+      const zone = this.add.zone(x, y, bw, bh).setInteractive({ useHandCursor: false });
+      zone.on("pointerover", () => {
+        this.statusBar.setText("dim_customers is the CRIME SCENE — not a suspect. Interview the nodes around it.");
+      });
+      zone.on("pointerout", () => {
+        this.statusBar.setText("Click a node to interview. Collect evidence to build your case.");
+      });
+    } else {
+      const zone = this.add.zone(x, y, bw, bh).setInteractive({ useHandCursor: true });
+      zone.on("pointerover", () => { g.clear(); this._redrawNodeHover(g, nodeDef, true); });
+      zone.on("pointerout",  () => { g.clear(); this._redrawNodeHover(g, nodeDef, false); });
+      zone.on("pointerdown", () => this._openDialogue(nodeDef));
+    }
+
+    return { g, labelText, subText };
+  }
+
+  _redrawNodeHover(g, { x, y, color }, hovered) {
+    const bw = 130, bh = 80;
+    const bx = x - bw / 2, by = y - bh / 2;
+    const glowA = hovered ? 0.18 : 0.08;
+    const borderA = hovered ? 1 : 1;
+    g.fillStyle(color, glowA);
+    g.fillRect(bx - 8, by - 8, bw + 16, bh + 16);
+    g.fillStyle(0x0b0b18, 1);
+    g.fillRect(bx, by, bw, bh);
+    g.lineStyle(hovered ? 2.5 : 2, color, borderA);
+    g.strokeRect(bx, by, bw, bh);
+    g.fillStyle(color, 0.9);
+    g.fillRect(bx, by, bw, 18);
+  }
+
+  _buildEvidencePanel() {
+    const px = W - 165, py = 70, pw = 150, ph = 400;
+    const panelGfx = this.add.graphics();
+    panelGfx.fillStyle(0x080812, 1);
+    panelGfx.fillRect(px, py, pw, ph);
+    panelGfx.lineStyle(1, 0x303050, 1);
+    panelGfx.strokeRect(px, py, pw, ph);
+
+    this.add.text(px + pw / 2, py + 14, "EVIDENCE", {
+      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+    }).setOrigin(0.5);
+
+    this.evidenceList = this.add.text(px + 10, py + 32, "No evidence collected.", {
+      fontFamily: "monospace", fontSize: "9px", color: "#8080a8",
+      wordWrap: { width: pw - 20 }, lineSpacing: 4,
+    });
+
+    this.evidenceCountText = this.add.text(px + pw / 2, py + ph - 14, "0 items", {
+      fontFamily: "monospace", fontSize: "9px", color: "#7070a0",
+    }).setOrigin(0.5);
+  }
+
+  _buildAccuseButton() {
+    const aw = 260, ah = 42;
+    const ax = W / 2 - aw / 2, ay = H - 76;
+    this.accuseBg = this.add.graphics().setDepth(5);
+    this.accuseText = this.add.text(W / 2, ay + ah / 2, "MAKE ACCUSATION", {
+      fontFamily: "monospace", fontSize: "13px", color: "#ffffff",
+    }).setOrigin(0.5).setVisible(false).setDepth(5);
+
+    this.accuseZone = this.add.zone(W / 2, ay + ah / 2, aw, ah).setDepth(5);
+    this.accuseZone.on("pointerdown", () => {
+      this.scene.start("AccusationScene", { evidence: this.evidence });
+    });
+    this._accuseFlash = false;
+  }
+
+  _showAccuseButton() {
+    const aw = 260, ah = 42;
+    const ax = W / 2 - aw / 2, ay = H - 76;
+    this.accuseText.setVisible(true);
+    this.accuseZone.setInteractive({ useHandCursor: true });
+
+    // Pulse the button via a repeating tween on the graphics
+    let bright = true;
+    this.accuseBg.clear();
+    this.accuseBg.fillStyle(0xb03030, 1).fillRect(ax, ay, aw, ah);
+    this.accuseBg.lineStyle(2, 0xff8080, 1).strokeRect(ax, ay, aw, ah);
+
+    this.time.addEvent({
+      delay: 600,
+      loop: true,
+      callback: () => {
+        bright = !bright;
+        this.accuseBg.clear();
+        const col = bright ? 0xc83838 : 0x902828;
+        this.accuseBg.fillStyle(col, 1).fillRect(ax, ay, aw, ah);
+        this.accuseBg.lineStyle(2, 0xff8888, bright ? 1 : 0.5).strokeRect(ax, ay, aw, ah);
+      },
+    });
+
+    this.statusBar.setText("");
+  }
+
+  _buildDialogueBox() {
+    const dw = 580, dh = 220;
+    const dx = (W - dw) / 2, dy = H - dh - 24;
+
+    this.dlgContainer = this.add.container(0, 0).setVisible(false);
+
+    // Backdrop
+    const backdrop = this.add.graphics();
+    backdrop.fillStyle(0x000000, 0.5);
+    backdrop.fillRect(0, 0, W, H);
+    this.dlgContainer.add(backdrop);
+
+    // Box
+    const bg = this.add.graphics();
+    bg.fillStyle(0x08080f, 1);
+    bg.fillRect(dx, dy, dw, dh);
+    bg.lineStyle(2, 0xe8c97e, 0.9);
+    bg.strokeRect(dx, dy, dw, dh);
+    bg.lineStyle(1, 0x303050, 1);
+    bg.strokeRect(dx + 4, dy + 4, dw - 8, dh - 8);
+    this.dlgContainer.add(bg);
+
+    // Portrait placeholder
+    const portrait = this.add.graphics();
+    portrait.fillStyle(0x181828, 1);
+    portrait.fillRect(dx + 16, dy + 36, 70, 70);
+    portrait.lineStyle(1, 0x303050, 1);
+    portrait.strokeRect(dx + 16, dy + 36, 70, 70);
+    this.dlgContainer.add(portrait);
+
+    this.dlgPortraitIcon = this.add.text(dx + 51, dy + 71, "?", {
+      fontFamily: "monospace", fontSize: "28px", color: "#404060",
+    }).setOrigin(0.5);
+    this.dlgContainer.add(this.dlgPortraitIcon);
+
+    // Name
+    this.dlgName = this.add.text(dx + 100, dy + 14, "", {
+      fontFamily: "monospace", fontSize: "13px", color: "#e8c97e",
+    });
+    this.dlgContainer.add(this.dlgName);
+
+    // Service/owner line
+    this.dlgMeta = this.add.text(dx + 100, dy + 32, "", {
+      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+    });
+    this.dlgContainer.add(this.dlgMeta);
+
+    // Dialogue text
+    this.dlgText = this.add.text(dx + 100, dy + 52, "", {
+      fontFamily: "monospace", fontSize: "12px", color: "#c8c8e0",
+      wordWrap: { width: dw - 130 }, lineSpacing: 4,
+    });
+    this.dlgContainer.add(this.dlgText);
+
+    // Collect evidence button
+    const collectBg = this.add.graphics();
+    collectBg.fillStyle(0x2a4a2a, 1);
+    collectBg.fillRect(dx + 16, dy + dh - 44, 180, 30);
+    collectBg.lineStyle(1, 0x40a040, 1);
+    collectBg.strokeRect(dx + 16, dy + dh - 44, 180, 30);
+    this.dlgContainer.add(collectBg);
+
+    this.dlgCollectText = this.add.text(dx + 106, dy + dh - 29, "COLLECT EVIDENCE", {
+      fontFamily: "monospace", fontSize: "10px", color: "#60d060",
+    }).setOrigin(0.5);
+    this.dlgContainer.add(this.dlgCollectText);
+
+    this.dlgCollectZone = this.add.zone(dx + 106, dy + dh - 29, 180, 30)
+      .setInteractive({ useHandCursor: true });
+    this.dlgCollectZone.on("pointerdown", () => this._collectEvidence());
+    this.dlgContainer.add(this.dlgCollectZone);
+
+    // Next line button
+    const nextBg = this.add.graphics();
+    nextBg.fillStyle(0x1a2a4a, 1);
+    nextBg.fillRect(dx + 210, dy + dh - 44, 140, 30);
+    nextBg.lineStyle(1, 0x4060a0, 1);
+    nextBg.strokeRect(dx + 210, dy + dh - 44, 140, 30);
+    this.dlgContainer.add(nextBg);
+
+    const nextLabel = this.add.text(dx + 280, dy + dh - 29, "NEXT  >>", {
+      fontFamily: "monospace", fontSize: "10px", color: "#6080c0",
+    }).setOrigin(0.5);
+    this.dlgContainer.add(nextLabel);
+
+    const nextZone = this.add.zone(dx + 280, dy + dh - 29, 140, 30)
+      .setInteractive({ useHandCursor: true });
+    nextZone.on("pointerdown", () => this._nextLine());
+    this.dlgContainer.add(nextZone);
+
+    // Close button
+    const closeBg = this.add.graphics();
+    closeBg.fillStyle(0x1a1a2a, 1);
+    closeBg.fillRect(dx + dw - 100, dy + dh - 44, 84, 30);
+    closeBg.lineStyle(1, 0x404060, 1);
+    closeBg.strokeRect(dx + dw - 100, dy + dh - 44, 84, 30);
+    this.dlgContainer.add(closeBg);
+
+    const closeLabel = this.add.text(dx + dw - 58, dy + dh - 29, "DISMISS", {
+      fontFamily: "monospace", fontSize: "10px", color: "#606070",
+    }).setOrigin(0.5);
+    this.dlgContainer.add(closeLabel);
+
+    const closeZone = this.add.zone(dx + dw - 58, dy + dh - 29, 84, 30)
+      .setInteractive({ useHandCursor: true });
+    closeZone.on("pointerdown", () => this._closeDialogue());
+    this.dlgContainer.add(closeZone);
+  }
+
+  _openDialogue(nodeDef) {
+    if (this.dialogueOpen) return;
+    this.dialogueOpen = true;
+    this.currentNode = nodeDef;
+    if (!(nodeDef.key in this.lineIndex)) this.lineIndex[nodeDef.key] = 0;
+
+    this.dlgName.setText(nodeDef.label);
+    const live = this.liveData[nodeDef.key];
+    const service = live?.serviceType ?? "...";
+    const owner = live?.owners?.[0]?.displayName ?? "Unknown";
+    this.dlgMeta.setText(`${service}  |  owner: ${owner}`);
+
+    const lines = this.dialogueLines[nodeDef.key] ?? SCRIPTED_DIALOGUE[nodeDef.key];
+    const idx = this.lineIndex[nodeDef.key] % lines.length;
+    this.dlgPortraitIcon.setText(nodeDef.label[0].toUpperCase());
+    this.dlgPortraitIcon.setColor(hexColor(nodeDef.color));
+
+    typewriterText(this, lines[idx], this.dlgText, 22);
+    this.dlgContainer.setVisible(true);
+    this.dlgContainer.setDepth(10);
+
+    this.statusBar.setText(`Interviewing: ${nodeDef.label}`);
+
+    // Fetch LLM dialogue if not already fetched
+    if (!this.dialogueLines[nodeDef.key]) {
+      this._fetchDialogue(nodeDef, live);
+    }
+  }
+
+  _nextLine() {
+    if (!this.currentNode) return;
+    const key = this.currentNode.key;
+    this.lineIndex[key] = ((this.lineIndex[key] ?? 0) + 1);
+    const lines = this.dialogueLines[key] ?? SCRIPTED_DIALOGUE[key];
+    const idx = this.lineIndex[key] % lines.length;
+    typewriterText(this, lines[idx], this.dlgText, 22);
+  }
+
+  _closeDialogue() {
+    this.dlgContainer.setVisible(false);
+    this.dialogueOpen = false;
+    this.currentNode = null;
+    if (this._typeTimer) this._typeTimer.remove();
+    this.statusBar.setText("Click a node to interview. Collect evidence to build your case.");
+  }
+
+  _collectEvidence() {
+    if (!this.currentNode) return;
+    const node = this.currentNode; // save before _closeDialogue nulls it
+    const key = node.key;
+    if (this.evidence.find(e => e.key === key)) {
+      this.statusBar.setText("Already collected: " + node.label);
+      return;
+    }
+    this.evidence.push({ key, ...node });
+    this._updateEvidencePanel();
+    this._closeDialogue();
+    this.statusBar.setText("Evidence collected: " + node.evidenceTitle);
+
+    if (this.evidence.length >= 2) this._showAccuseButton();
+  }
+
+  _updateEvidencePanel() {
+    if (this.evidence.length === 0) {
+      this.evidenceList.setText("No evidence collected.");
+    } else {
+      const lines = this.evidence.map(e => `[+] ${e.evidenceTitle}`);
+      this.evidenceList.setText(lines.join("\n\n"));
+    }
+    this.evidenceCountText.setText(`${this.evidence.length} item${this.evidence.length !== 1 ? "s" : ""}`);
+  }
+
+  async _fetchNodeData(nodeDef) {
+    try {
+      const r = await fetch(`${BACKEND}/api/table/${nodeDef.fqn}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      this.liveData[nodeDef.key] = data;
+      const grp = this.nodeGroups[nodeDef.key];
+      if (grp) {
+        const cols = data.columns?.length ?? "?";
+        grp.subText.setText(`${data.serviceType ?? ""} / ${cols} cols`);
+      }
+    } catch (_) {}
+  }
+
+  async _fetchDialogue(nodeDef, liveData) {
+    try {
+      const r = await fetch(`${BACKEND}/api/dialogue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: nodeDef.label,
+          fqn: nodeDef.fqn,
+          serviceType: liveData?.serviceType ?? "Unknown",
+          owner: liveData?.owners?.[0]?.displayName ?? "Unknown",
+          columnCount: liveData?.columns?.length ?? 0,
+          role: nodeDef.role,
+          description: liveData?.description ?? "",
+        }),
+      });
+      if (!r.ok) return;
+      const { lines } = await r.json();
+      this.dialogueLines[nodeDef.key] = lines;
+      // If this node's dialogue box is currently open, refresh it
+      if (this.currentNode?.key === nodeDef.key) {
+        const idx = (this.lineIndex[nodeDef.key] ?? 0) % lines.length;
+        typewriterText(this, lines[idx], this.dlgText, 22);
+      }
+    } catch (_) {}
+  }
+}
+
+// ─── SCENE: ACCUSATION ───────────────────────────────────────────────────────
+class AccusationScene extends Phaser.Scene {
+  constructor() { super("AccusationScene"); }
+
+  init(data) { this.evidence = data.evidence ?? []; }
+
+  create() {
+    drawGrid(this, 0.2);
+
+    this.add.text(W / 2, 44, "ACCUSATION", {
+      fontFamily: "monospace", fontSize: "28px", color: "#e05050", letterSpacing: 6,
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, 80, "Who is responsible for the duplicate customer_id?", {
+      fontFamily: "monospace", fontSize: "13px", color: "#909090",
+    }).setOrigin(0.5);
+
+    // Evidence recap
+    this.add.text(W / 2, 116, "Evidence collected: " + this.evidence.map(e => e.evidenceTitle).join("  |  "), {
+      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+    }).setOrigin(0.5);
+
+    // Only show nodes the player actually interviewed
+    const suspects = this.evidence
+      .map(e => nodeByKey[e.key])
+      .filter(n => n && n.role !== "victim");
+    suspects.forEach((s, i) => {
+      const bx = W / 2 - 150, by = 170 + i * 90, bw = 300, bh = 66;
+      const bg = this.add.graphics();
+      bg.fillStyle(0x10101c, 1);
+      bg.fillRect(bx, by, bw, bh);
+      bg.lineStyle(2, s.color, 0.8);
+      bg.strokeRect(bx, by, bw, bh);
+
+      this.add.text(bx + 16, by + 14, s.label, {
+        fontFamily: "monospace", fontSize: "13px", color: hexColor(s.color),
+      });
+      this.add.text(bx + 16, by + 36, `Role: ${s.badge}  |  Click to accuse`, {
+        fontFamily: "monospace", fontSize: "10px", color: "#404060",
+      });
+
+      const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh)
+        .setInteractive({ useHandCursor: true });
+      zone.on("pointerover", () => { bg.clear(); bg.fillStyle(0x181828, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 1); bg.strokeRect(bx, by, bw, bh); });
+      zone.on("pointerout",  () => { bg.clear(); bg.fillStyle(0x10101c, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 0.8); bg.strokeRect(bx, by, bw, bh); });
+      zone.on("pointerdown", () => {
+        this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
+      });
+    });
+
+    // Back button
+    this.add.text(W / 2, H - 28, "< back to investigation", {
+      fontFamily: "monospace", fontSize: "11px", color: "#303050",
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.scene.start("MapScene"));
+  }
+}
+
+// ─── SCENE: VERDICT ──────────────────────────────────────────────────────────
+class VerdictScene extends Phaser.Scene {
+  constructor() { super("VerdictScene"); }
+
+  init(data) {
+    this.chosen = data.chosen;
+    this.correct = data.chosen === GUILTY_KEY;
+    this.evidence = data.evidence ?? [];
+  }
+
+  create() {
+    drawGrid(this, 0.15);
+
+    if (this.correct) {
+      this._buildCorrect();
+    } else {
+      this._buildWrong();
+    }
+  }
+
+  _buildCorrect() {
+    this.add.text(W / 2, 60, "CASE CLOSED", {
+      fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, 100, "Detective rank: SENIOR INVESTIGATOR", {
+      fontFamily: "monospace", fontSize: "14px", color: "#60d060",
+    }).setOrigin(0.5);
+
+    const lines = [
+      "VERDICT: stg_customers",
+      "",
+      "The staging table operated without a real owner.",
+      "Owner field: 'test' — a placeholder nobody claimed.",
+      "",
+      `Column at fault: ${GUILTY_COLUMN}`,
+      "",
+      GUILTY_REASON,
+      "",
+      "The uniqueness test on the raw customers table existed.",
+      "But the staging layer added no deduplication of its own.",
+      "A Tier 1 asset. Poisoned by an unclaimed staging table.",
+    ];
+
+    const card = this.add.graphics();
+    card.fillStyle(0x08080f, 1);
+    card.fillRect(W / 2 - 300, 118, 600, 420);
+    card.lineStyle(2, 0xe8c97e, 0.7);
+    card.strokeRect(W / 2 - 300, 118, 600, 420);
+
+    this.add.text(W / 2, 136, "THE TRUTH", {
+      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+    }).setOrigin(0.5);
+
+    const bodyText = this.add.text(W / 2 - 280, 158, "", {
+      fontFamily: "monospace", fontSize: "12px", color: "#c0c0d8", lineSpacing: 5,
+    });
+    const fullText = lines.join("\n");
+    let i = 0;
+    this.time.addEvent({
+      delay: 16, repeat: fullText.length - 1,
+      callback: () => { bodyText.setText(fullText.slice(0, ++i)); },
+    });
+
+    this._addFooter();
+  }
+
+  _buildWrong() {
+    const chosen = nodeByKey[this.chosen];
+    const cy = H / 2;
+
+    this.add.text(W / 2, cy - 150, "WRONG ACCUSATION", {
+      fontFamily: "monospace", fontSize: "28px", color: "#e05050", letterSpacing: 4,
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, cy - 100, `You accused: ${chosen?.label ?? this.chosen}`, {
+      fontFamily: "monospace", fontSize: "14px", color: "#a0a0b8",
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, cy - 30, "The real culprit is still out there.", {
+      fontFamily: "monospace", fontSize: "16px", color: "#c04040",
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, cy + 10, "Go back. Interview more suspects. Follow the evidence.", {
+      fontFamily: "monospace", fontSize: "13px", color: "#8080a0",
+    }).setOrigin(0.5);
+
+    const rb = this.add.graphics();
+    rb.fillStyle(0x301818, 1);
+    rb.fillRect(W / 2 - 120, cy + 60, 240, 44);
+    rb.lineStyle(1, 0x906060, 1);
+    rb.strokeRect(W / 2 - 120, cy + 60, 240, 44);
+
+    this.add.text(W / 2, cy + 82, "REINVESTIGATE", {
+      fontFamily: "monospace", fontSize: "12px", color: "#d08080",
+    }).setOrigin(0.5);
+    this.add.zone(W / 2, cy + 82, 240, 44).setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.scene.start("MapScene"));
+  }
+
+  _addFooter() {
+    const replayBg = this.add.graphics();
+    replayBg.fillStyle(0x202030, 1);
+    replayBg.fillRect(W / 2 - 110, H - 56, 220, 38);
+    replayBg.lineStyle(1, 0x505070, 1);
+    replayBg.strokeRect(W / 2 - 110, H - 56, 220, 38);
+    this.add.text(W / 2, H - 37, "REPLAY CASE", {
+      fontFamily: "monospace", fontSize: "12px", color: "#8080a0",
+    }).setOrigin(0.5);
+    this.add.zone(W / 2, H - 37, 220, 38).setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.scene.start("BriefingScene"));
+
+    this.add.text(W / 2, H - 10, "Catalog Noir — every clue is real OpenMetadata data", {
+      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+    }).setOrigin(0.5);
+  }
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: W,
+  height: H,
+  backgroundColor: "#050508",
+  scene: [BriefingScene, MapScene, AccusationScene, VerdictScene],
+  parent: document.body,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+});
+</script>
+</body>
+</html>
