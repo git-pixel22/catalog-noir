@@ -36,7 +36,7 @@ const NODE_DEFS = [
     role: "suspect",
     x: 240, y: 200,
     color: 0xe0c040,
-    badge: "SUSPECT",
+    badge: "STAGING",
     evidenceTitle: "GHOST OWNERSHIP",
     evidenceText: "stg_customers owner: 'test'\nNo real person claimed this table.\nTransformation logic unaudited.",
   },
@@ -66,9 +66,24 @@ const NODE_DEFS = [
 
 // Edges: from key -> to key
 const EDGE_DEFS = [
-  { from: "customers",        to: "stg_customers",   cols: "customer_id" },
-  { from: "stg_customers",   to: "dim_customers",    cols: "customer_id" },
-  { from: "dim_customers",   to: "customer_metrics", cols: "revenue,orders" },
+  {
+    from: "customers", to: "stg_customers", cols: "customer_id",
+    title: "COLUMN LINEAGE: customer_id",
+    detail: "customer_id flows from raw MySQL CRM into the staging layer.\nNo deduplication is applied during this transfer.",
+    clue: "⚠  A uniqueness test exists on the source. None exists on staging.",
+  },
+  {
+    from: "stg_customers", to: "dim_customers", cols: "customer_id",
+    title: "COLUMN LINEAGE: customer_id",
+    detail: "customer_id passes from staging into the Tier 1 mart table.\nThis is the column that failed the Customer Key Uniqueness test at 14:03.",
+    clue: "⚠  Duplicate customer_ids entered dim_customers unchecked.",
+  },
+  {
+    from: "dim_customers", to: "customer_metrics", cols: "revenue, orders",
+    title: "COLUMN LINEAGE: revenue, orders",
+    detail: "Revenue and order counts are aggregated from dim_customers.\nDuplicate customer_ids inflate every downstream metric.",
+    clue: "⚠  Contaminated data propagates to dashboards and ML models.",
+  },
 ];
 
 const SCRIPTED_DIALOGUE = {
@@ -341,11 +356,11 @@ class MapScene extends Phaser.Scene {
     this.liveData = {};
     this.dialogueLines = {};
     this.lineIndex = {};
+    this.interviewed = new Set();
   }
 
   create() {
     drawGrid(this, 0.3);
-
     // Fetch live data for all nodes (non-blocking)
     NODE_DEFS.forEach(n => this._fetchNodeData(n));
 
@@ -388,11 +403,9 @@ class MapScene extends Phaser.Scene {
     const to   = nodeByKey[edgeDef.to];
     const color = 0x304060;
     g.lineStyle(2, color, 0.8);
-
-    // Arrow line
     g.lineBetween(from.x, from.y, to.x, to.y);
 
-    // Arrowhead at 'to' node edge
+    // Arrowhead
     const angle = Math.atan2(to.y - from.y, to.x - from.x);
     const ax = to.x - Math.cos(angle) * 62;
     const ay = to.y - Math.sin(angle) * 42;
@@ -404,12 +417,59 @@ class MapScene extends Phaser.Scene {
       ax + Math.cos(angle - 2.4) * arrowSize, ay + Math.sin(angle - 2.4) * arrowSize,
     );
 
-    // Column label on edge midpoint
+    // Midpoint label + clickable indicator
     const mx = (from.x + to.x) / 2;
     const my = (from.y + to.y) / 2;
-    this.add.text(mx, my - 10, edgeDef.cols, {
+
+    this.add.text(mx, my - 14, edgeDef.cols, {
       fontFamily: "monospace", fontSize: "9px", color: "#5070a0",
     }).setOrigin(0.5);
+
+    // Cyan diamond — click for lineage detail
+    const d = this.add.graphics().setDepth(2);
+    const drawDiamond = (bright) => {
+      d.clear();
+      d.fillStyle(bright ? 0x44ccdd : 0x226688, bright ? 0.95 : 0.7);
+      d.fillTriangle(mx, my - 7, mx + 7, my, mx, my + 7);
+      d.fillTriangle(mx, my - 7, mx - 7, my, mx, my + 7);
+    };
+    drawDiamond(false);
+
+    const zone = this.add.zone(mx, my, 22, 22).setInteractive({ useHandCursor: true }).setDepth(2);
+    zone.on("pointerover", () => drawDiamond(true));
+    zone.on("pointerout",  () => drawDiamond(false));
+    zone.on("pointerdown", () => this._showEdgeDetail(edgeDef));
+  }
+
+  _showEdgeDetail(edgeDef) {
+    if (this._edgePopup) this._edgePopup.destroy();
+
+    const pw = 480, ph = 150;
+    const px = W / 2 - pw / 2, py = H / 2 - ph / 2;
+
+    const ctr = this.add.container(0, 0).setDepth(15);
+    this._edgePopup = ctr;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x080812, 0.97).fillRect(px, py, pw, ph);
+    bg.lineStyle(1, 0x44ccdd, 0.8).strokeRect(px, py, pw, ph);
+    bg.lineStyle(1, 0x224455, 0.5).strokeRect(px + 3, py + 3, pw - 6, ph - 6);
+    ctr.add(bg);
+
+    ctr.add(this.add.text(px + 16, py + 14, edgeDef.title, {
+      fontFamily: "monospace", fontSize: "11px", color: "#44ccdd",
+    }));
+    ctr.add(this.add.text(px + 16, py + 36, edgeDef.detail, {
+      fontFamily: "monospace", fontSize: "11px", color: "#c0c0d8", lineSpacing: 4,
+    }));
+    ctr.add(this.add.text(px + 16, py + 96, edgeDef.clue, {
+      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+    }));
+
+    // Close on click anywhere
+    const closeZone = this.add.zone(W / 2, H / 2, W, H).setInteractive().setDepth(14);
+    ctr.add(closeZone);
+    closeZone.on("pointerdown", () => { ctr.destroy(); this._edgePopup = null; });
   }
 
   _buildNode(nodeDef) {
@@ -651,10 +711,30 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.add(closeZone);
   }
 
+  _markInterviewed(nodeDef) {
+    if (this.interviewed.has(nodeDef.key)) return;
+    this.interviewed.add(nodeDef.key);
+    const { x, y } = nodeDef;
+    const bw = 130, bh = 80;
+
+    // Green dot in top-right corner of node
+    const dot = this.add.graphics().setDepth(3);
+    dot.fillStyle(0x40d060, 1);
+    dot.fillCircle(x + bw / 2 - 7, y - bh / 2 + 7, 5);
+    dot.lineStyle(1, 0x000000, 0.4);
+    dot.strokeCircle(x + bw / 2 - 7, y - bh / 2 + 7, 5);
+
+    // Small label below the node
+    this.add.text(x, y + bh / 2 + 10, "✓  INTERVIEWED", {
+      fontFamily: "monospace", fontSize: "8px", color: "#40d060",
+    }).setOrigin(0.5).setDepth(3);
+  }
+
   _openDialogue(nodeDef) {
     if (this.dialogueOpen) return;
     this.dialogueOpen = true;
     this.currentNode = nodeDef;
+    this._markInterviewed(nodeDef);
     if (!(nodeDef.key in this.lineIndex)) this.lineIndex[nodeDef.key] = 0;
 
     this.dlgName.setText(nodeDef.label);
@@ -802,7 +882,7 @@ class AccusationScene extends Phaser.Scene {
       this.add.text(bx + 16, by + 14, s.label, {
         fontFamily: "monospace", fontSize: "13px", color: hexColor(s.color),
       });
-      this.add.text(bx + 16, by + 36, `Role: ${s.badge}  |  Click to accuse`, {
+      this.add.text(bx + 16, by + 36, `Type: ${s.badge}  |  Click to accuse`, {
         fontFamily: "monospace", fontSize: "10px", color: "#404060",
       });
 
