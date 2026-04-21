@@ -98,6 +98,22 @@ const GUILTY_KEY = "stg_customers";
 const GUILTY_COLUMN = "customer_id";
 const GUILTY_REASON = "stg_customers has no real owner and no deduplication\nin its transformation logic. Duplicate customer_ids\nflowed from raw MySQL into the Snowflake staging layer\nunchecked — then poisoned dim_customers at 14:03.";
 
+// Confrontation: two evidence cards can crack the suspect
+const CONFRONT_STATEMENT =
+  "Check the records, detective. I have a real owner.\n" +
+  "Someone legitimate is responsible for this pipeline.\n" +
+  "I am not some ghost operation running without oversight.";
+
+// Only GHOST OWNERSHIP (stg_customers card) disproves this ownership claim.
+// UPSTREAM TEST is about data quality on the raw source — wrong evidence, wrong charge.
+const CONFRONT_CORRECT_KEY = "stg_customers";
+const CONFRONT_REVEAL =
+  "Owner field: 'test'.\n" +
+  "That is not a person. That is a placeholder.\n" +
+  "Nobody ever claimed responsibility for this table.\n" +
+  "Ghost operation. Confirmed.";
+const CONFRONT_WRONG_MSG = "That evidence doesn't address ownership. The suspect is lying about who owns them — not about data quality. Look closer.";
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const nodeByKey = {};
 NODE_DEFS.forEach(n => nodeByKey[n.key] = n);
@@ -692,7 +708,11 @@ class AccusationScene extends Phaser.Scene {
       zone.on("pointerover", () => { bg.clear(); bg.fillStyle(0x181828, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 1); bg.strokeRect(bx, by, bw, bh); });
       zone.on("pointerout",  () => { bg.clear(); bg.fillStyle(0x10101c, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 0.8); bg.strokeRect(bx, by, bw, bh); });
       zone.on("pointerdown", () => {
-        this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
+        if (s.key === GUILTY_KEY) {
+          this.scene.start("ConfrontScene", { evidence: this.evidence });
+        } else {
+          this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
+        }
       });
     });
 
@@ -701,6 +721,186 @@ class AccusationScene extends Phaser.Scene {
       fontFamily: "monospace", fontSize: "11px", color: "#303050",
     }).setOrigin(0.5).setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.scene.start("MapScene"));
+  }
+}
+
+// ─── SCENE: CONFRONT ─────────────────────────────────────────────────────────
+class ConfrontScene extends Phaser.Scene {
+  constructor() { super("ConfrontScene"); }
+
+  init(data) { this.evidence = data.evidence ?? []; }
+
+  create() {
+    drawGrid(this, 0.15);
+
+    // Header
+    this.add.text(W / 2, 28, "CONFRONTATION", {
+      fontFamily: "monospace", fontSize: "22px", color: "#e05050", letterSpacing: 6,
+    }).setOrigin(0.5);
+    this.add.text(W / 2, 54, "stg_customers is cornered. Present evidence to break the alibi.", {
+      fontFamily: "monospace", fontSize: "11px", color: "#9090b0",
+    }).setOrigin(0.5);
+
+    // Detective silhouette (left)
+    const det = this.add.graphics();
+    det.fillStyle(0x282840, 1);
+    det.fillRect(44, 210, 72, 110);   // body
+    det.fillCircle(80, 200, 26);       // head
+    det.fillRect(50, 172, 60, 16);     // hat brim
+    det.fillRect(58, 156, 44, 20);     // hat crown
+    this.add.text(80, 334, "DETECTIVE", {
+      fontFamily: "monospace", fontSize: "9px", color: "#404060",
+    }).setOrigin(0.5);
+
+    // Suspect box (right)
+    const sus = this.add.graphics();
+    sus.fillStyle(0xe0c040, 0.12);
+    sus.fillRect(640, 148, 140, 180);
+    sus.fillStyle(0x0e0e1a, 1);
+    sus.fillRect(644, 152, 132, 172);
+    sus.lineStyle(2, 0xe0c040, 1);
+    sus.strokeRect(644, 152, 132, 172);
+    sus.fillStyle(0xe0c040, 0.9);
+    sus.fillRect(644, 152, 132, 20);
+    this.add.text(710, 162, "SUSPECT", {
+      fontFamily: "monospace", fontSize: "10px", color: "#0a0a14",
+    }).setOrigin(0.5);
+    this.add.text(710, 206, "S", {
+      fontFamily: "monospace", fontSize: "44px", color: "#e0c040",
+    }).setOrigin(0.5);
+    this.add.text(710, 252, "stg_customers", {
+      fontFamily: "monospace", fontSize: "11px", color: "#d0d0e0",
+    }).setOrigin(0.5);
+    this.add.text(710, 270, "Snowflake  |  owner: test", {
+      fontFamily: "monospace", fontSize: "9px", color: "#606070",
+    }).setOrigin(0.5);
+
+    // Speech bubble from suspect
+    const bub = this.add.graphics();
+    bub.fillStyle(0x0c0c1c, 1);
+    bub.fillRect(148, 142, 470, 166);
+    bub.lineStyle(1, 0xe0c040, 0.6);
+    bub.strokeRect(148, 142, 470, 166);
+    // bubble tail pointing right
+    bub.fillStyle(0x0c0c1c, 1);
+    bub.fillTriangle(618, 226, 638, 215, 638, 237);
+    bub.lineStyle(1, 0xe0c040, 0.6);
+    bub.lineBetween(618, 226, 638, 215);
+    bub.lineBetween(618, 226, 638, 237);
+
+    const stmtObj = this.add.text(162, 155, "", {
+      fontFamily: "monospace", fontSize: "12px", color: "#d0d0e8",
+      wordWrap: { width: 446 }, lineSpacing: 5,
+    });
+    typewriterText(this, CONFRONT_STATEMENT, stmtObj, 18);
+
+    // Instruction
+    this.add.text(W / 2, 328, "Select an evidence card to present:", {
+      fontFamily: "monospace", fontSize: "11px", color: "#8080a8",
+    }).setOrigin(0.5);
+
+    // Evidence cards (only non-victim ones)
+    const cards = this.evidence.filter(e => nodeByKey[e.key]?.role !== "victim");
+    const cW = 170, cH = 90, gap = 18;
+    const totalW = cards.length * cW + (cards.length - 1) * gap;
+    const startX = W / 2 - totalW / 2;
+
+    cards.forEach((ev, i) => {
+      const nd = nodeByKey[ev.key];
+      const cx = startX + i * (cW + gap), cy = 354;
+      const cg = this._drawCard(cx, cy, cW, cH, nd, ev, false);
+
+      const zone = this.add.zone(cx + cW / 2, cy + cH / 2, cW, cH)
+        .setInteractive({ useHandCursor: true });
+      zone.on("pointerover", () => { cg.clear(); this._drawCard(cx, cy, cW, cH, nd, ev, true, cg); });
+      zone.on("pointerout",  () => { cg.clear(); this._drawCard(cx, cy, cW, cH, nd, ev, false, cg); });
+      zone.on("pointerdown", () => this._present(ev.key));
+    });
+
+    this.feedbackText = this.add.text(W / 2, 462, "", {
+      fontFamily: "monospace", fontSize: "11px", color: "#c06060",
+    }).setOrigin(0.5);
+  }
+
+  _drawCard(cx, cy, cW, cH, nd, ev, hovered, g) {
+    const gfx = g ?? this.add.graphics();
+    const col = nd?.color ?? 0x606080;
+    gfx.fillStyle(hovered ? 0x181830 : 0x0c0c1c, 1);
+    gfx.fillRect(cx, cy, cW, cH);
+    gfx.lineStyle(2, col, hovered ? 1 : 0.7);
+    gfx.strokeRect(cx, cy, cW, cH);
+    gfx.fillStyle(col, hovered ? 1 : 0.85);
+    gfx.fillRect(cx, cy, cW, 18);
+    if (!g) {
+      this.add.text(cx + cW / 2, cy + 9, ev.evidenceTitle, {
+        fontFamily: "monospace", fontSize: "8px", color: "#0a0a14",
+      }).setOrigin(0.5);
+      this.add.text(cx + cW / 2, cy + 44, (ev.evidenceText ?? "").split("\n")[0], {
+        fontFamily: "monospace", fontSize: "9px", color: "#9090b8",
+        wordWrap: { width: cW - 12 }, align: "center",
+      }).setOrigin(0.5);
+    }
+    return gfx;
+  }
+
+  _present(key) {
+    if (key === CONFRONT_CORRECT_KEY) {
+      this._objection();
+    } else {
+      this.feedbackText.setText(CONFRONT_WRONG_MSG);
+      this.time.delayedCall(2800, () => this.feedbackText.setText(""));
+    }
+  }
+
+  _objection() {
+    this.input.enabled = false;
+
+    // 1. Full-screen dark wipe — covers all existing scene content cleanly
+    const wipe = this.add.graphics().setDepth(18);
+    wipe.fillStyle(0x050508, 0).fillRect(0, 0, W, H);
+    this.tweens.add({ targets: wipe, alpha: 1, duration: 200,
+      onUpdate: () => { wipe.clear(); wipe.fillStyle(0x050508, wipe.alpha ?? 0).fillRect(0, 0, W, H); }
+    });
+
+    // 2. White flash on top of wipe
+    this.time.delayedCall(160, () => {
+      const flash = this.add.graphics().setDepth(19);
+      flash.fillStyle(0xffffff, 1).fillRect(0, 0, W, H);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 320 });
+    });
+
+    // 3. OBJECTION! punch in
+    this.time.delayedCall(180, () => {
+      const obj = this.add.text(W / 2, H / 2 - 80, "OBJECTION!", {
+        fontFamily: "monospace", fontSize: "72px", color: "#ff2020",
+        stroke: "#ffffff", strokeThickness: 4,
+      }).setOrigin(0.5).setScale(2.8).setDepth(20);
+      this.tweens.add({ targets: obj, scaleX: 1, scaleY: 1, duration: 400, ease: "Back.easeOut" });
+    });
+
+    // 4. Reveal text on clean dark canvas — no overlap possible
+    this.time.delayedCall(700, () => {
+      // Card background for the reveal
+      const card = this.add.graphics().setDepth(20);
+      card.lineStyle(1, 0xe8c97e, 0.6);
+      card.fillStyle(0x0c0c1c, 1);
+      card.fillRect(W / 2 - 280, H / 2 - 10, 560, 130);
+      card.strokeRect(W / 2 - 280, H / 2 - 10, 560, 130);
+
+      this.add.text(W / 2 - 260, H / 2 + 8, "EVIDENCE ACCEPTED:", {
+        fontFamily: "monospace", fontSize: "10px", color: "#e8c97e",
+      }).setDepth(21);
+
+      this.add.text(W / 2, H / 2 + 58, CONFRONT_REVEAL, {
+        fontFamily: "monospace", fontSize: "13px", color: "#e0e0f0",
+        align: "center", lineSpacing: 6,
+      }).setOrigin(0.5).setDepth(21);
+    });
+
+    // 5. Transition to verdict
+    this.time.delayedCall(3600, () => {
+      this.scene.start("VerdictScene", { chosen: GUILTY_KEY, evidence: this.evidence });
+    });
   }
 }
 
@@ -828,7 +1028,7 @@ new Phaser.Game({
   width: W,
   height: H,
   backgroundColor: "#050508",
-  scene: [BriefingScene, MapScene, AccusationScene, VerdictScene],
+  scene: [BriefingScene, MapScene, AccusationScene, ConfrontScene, VerdictScene],
   parent: document.body,
   scale: {
     mode: Phaser.Scale.FIT,
