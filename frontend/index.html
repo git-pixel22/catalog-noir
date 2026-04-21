@@ -118,6 +118,106 @@ const CONFRONT_WRONG_MSG = "That evidence doesn't address ownership. The suspect
 const nodeByKey = {};
 NODE_DEFS.forEach(n => nodeByKey[n.key] = n);
 
+// ─── SOUND ENGINE ─────────────────────────────────────────────────────────────
+const SFX = (() => {
+  let ctx = null;
+  const get = () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  };
+
+  function osc(freq, type, start, dur, gainVal, fadeOut = true) {
+    const c = get();
+    const g = c.createGain();
+    g.gain.setValueAtTime(gainVal, c.currentTime + start);
+    if (fadeOut) g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + start + dur);
+    const o = c.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, c.currentTime + start);
+    o.connect(g);
+    g.connect(c.destination);
+    o.start(c.currentTime + start);
+    o.stop(c.currentTime + start + dur + 0.01);
+  }
+
+  function noise(start, dur, gainVal) {
+    const c = get();
+    const buf = c.createBuffer(1, c.sampleRate * dur, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const g = c.createGain();
+    g.gain.setValueAtTime(gainVal, c.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + start + dur);
+    src.connect(g);
+    g.connect(c.destination);
+    src.start(c.currentTime + start);
+  }
+
+  return {
+    // Single typewriter key click — swap the body to change style:
+    typeClick() {
+      osc(1100, "sine", 0, 0.018, 0.48);
+    },
+
+    // Satisfying thud when evidence is stamped/collected
+    evidenceStamp() {
+      osc(120, "sine",   0,    0.15, 0.5);
+      osc(80,  "sine",   0,    0.20, 0.3);
+      noise(0, 0.06, 0.15);
+    },
+
+    // Dramatic OBJECTION! sting — sharp brass chord
+    objection() {
+      // Staccato chord: D minor-ish
+      [[294, 0], [370, 0.01], [440, 0.02], [587, 0.03]].forEach(([f, t]) => {
+        osc(f, "sawtooth", t, 0.6, 0.25);
+      });
+      // Low thud underneath
+      osc(80, "sine", 0, 0.4, 0.6);
+      noise(0, 0.08, 0.2);
+    },
+
+    // Wrong evidence — dull thud
+    wrongEvidence() {
+      osc(180, "sine",   0,    0.3, 0.3);
+      osc(160, "sine",   0.05, 0.3, 0.2);
+    },
+
+    // Scene transition whoosh
+    whoosh() {
+      const c = get();
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.3, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.4);
+      const o = c.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(600, c.currentTime);
+      o.frequency.exponentialRampToValueAtTime(200, c.currentTime + 0.4);
+      o.connect(g);
+      g.connect(c.destination);
+      o.start();
+      o.stop(c.currentTime + 0.41);
+      noise(0, 0.3, 0.1);
+    },
+
+    // Verdict correct — resolving major chord
+    caseClosed() {
+      [[262, 0], [330, 0.1], [392, 0.2], [523, 0.3]].forEach(([f, t]) => {
+        osc(f, "sine", t, 1.2 - t, 0.3);
+      });
+    },
+
+    // Verdict wrong — descending minor
+    caseWrong() {
+      [[330, 0], [294, 0.15], [247, 0.3], [220, 0.45]].forEach(([f, t]) => {
+        osc(f, "sine", t, 0.4, 0.25);
+      });
+    },
+  };
+})();
+
 function hexColor(hex) {
   return `#${hex.toString(16).padStart(6, "0")}`;
 }
@@ -138,7 +238,9 @@ function typewriterText(scene, text, textObj, speed = 28, onDone) {
     delay: speed,
     repeat: text.length - 1,
     callback: () => {
+      const ch = text[i];
       textObj.setText(text.slice(0, ++i));
+      if (ch && ch !== " " && ch !== "\n" && i % 2 === 0) SFX.typeClick();
       if (i >= text.length && onDone) onDone();
     },
   });
@@ -221,7 +323,7 @@ class BriefingScene extends Phaser.Scene {
     const btnZone = this.add.zone(W / 2, btnY + 22, 240, 44).setInteractive({ useHandCursor: true });
     btnZone.on("pointerover", () => btnBg.clear().fillStyle(0xffd88a, 1).fillRect(W / 2 - 120, btnY, 240, 44));
     btnZone.on("pointerout",  () => btnBg.clear().fillStyle(0xe8c97e, 1).fillRect(W / 2 - 120, btnY, 240, 44));
-    btnZone.on("pointerdown", () => this.scene.start("MapScene"));
+    btnZone.on("pointerdown", () => { SFX.whoosh(); this.scene.start("MapScene"); });
 
     this.add.text(W / 2, btnY + 56, "Interview suspects. Collect evidence. Name the culprit.", {
       fontFamily: "monospace", fontSize: "12px", color: "#b0b0c8",
@@ -606,6 +708,7 @@ class MapScene extends Phaser.Scene {
     this.evidence.push({ key, ...node });
     this._updateEvidencePanel();
     this._closeDialogue();
+    SFX.evidenceStamp();
     this.statusBar.setText("Evidence collected: " + node.evidenceTitle);
 
     if (this.evidence.length >= 2) this._showAccuseButton();
@@ -864,6 +967,7 @@ class ConfrontScene extends Phaser.Scene {
     if (key === CONFRONT_CORRECT_KEY) {
       this._objection();
     } else {
+      SFX.wrongEvidence();
       this.feedbackText.setText(CONFRONT_WRONG_MSG);
       this.time.delayedCall(2800, () => this.feedbackText.setText(""));
     }
@@ -871,6 +975,7 @@ class ConfrontScene extends Phaser.Scene {
 
   _objection() {
     this.input.enabled = false;
+    SFX.objection();
 
     // 1. Full-screen dark wipe — covers all existing scene content cleanly
     const wipe = this.add.graphics().setDepth(18);
@@ -942,6 +1047,7 @@ class VerdictScene extends Phaser.Scene {
   }
 
   _buildCorrect() {
+    SFX.caseClosed();
     this.add.text(W / 2, 60, "CASE CLOSED", {
       fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
     }).setOrigin(0.5);
@@ -989,6 +1095,7 @@ class VerdictScene extends Phaser.Scene {
   }
 
   _buildWrong() {
+    SFX.caseWrong();
     const chosen = nodeByKey[this.chosen];
     const cy = H / 2;
 
