@@ -730,6 +730,10 @@ class ConfrontScene extends Phaser.Scene {
 
   init(data) { this.evidence = data.evidence ?? []; }
 
+  preload() {
+    this.load.image("detective", "/detective.png");
+  }
+
   create() {
     drawGrid(this, 0.15);
 
@@ -741,14 +745,27 @@ class ConfrontScene extends Phaser.Scene {
       fontFamily: "monospace", fontSize: "11px", color: "#9090b0",
     }).setOrigin(0.5);
 
-    // Detective silhouette (left)
-    const det = this.add.graphics();
-    det.fillStyle(0x282840, 1);
-    det.fillRect(44, 210, 72, 110);   // body
-    det.fillCircle(80, 200, 26);       // head
-    det.fillRect(50, 172, 60, 16);     // hat brim
-    det.fillRect(58, 156, 44, 20);     // hat crown
-    this.add.text(80, 334, "DETECTIVE", {
+    // Detective — real image if available, geometric fallback otherwise
+    const detX = 80, detY = 460;
+    if (this.textures.exists("detective")) {
+      const img = this.add.image(detX, detY, "detective");
+      const scale = Math.min(160 / img.width, 300 / img.height);
+      img.setScale(scale).setOrigin(0.5, 1).setTintFill(0x6677aa);
+    } else {
+      // Fallback: clean silhouette
+      const det = this.add.graphics();
+      const dc = 0x252540;
+      const cx = detX, by = detY - 300;
+      det.fillStyle(dc, 1);
+      det.fillRect(cx - 18, by, 36, 42);
+      det.fillRect(cx - 46, by + 38, 92, 9);
+      det.fillCircle(cx, by + 68, 20);
+      det.fillRect(cx - 6, by + 86, 12, 10);
+      det.fillTriangle(cx, by + 90, cx - 52, by + 116, cx + 52, by + 116);
+      det.fillRect(cx - 38, by + 112, 76, 108);
+      det.fillRect(cx - 44, by + 212, 88, 10);
+    }
+    this.add.text(detX, detY + 10, "DETECTIVE", {
       fontFamily: "monospace", fontSize: "9px", color: "#404060",
     }).setOrigin(0.5);
 

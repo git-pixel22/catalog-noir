@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import httpx
 import os
 from dotenv import load_dotenv
@@ -24,11 +24,6 @@ _OM_HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 _TABLE_FIELDS = "columns,tableConstraints,tags,owners,followers,usageSummary,testSuite"
 
 _FRONTEND = os.path.join(os.path.dirname(__file__), "..", "frontend")
-
-
-@app.get("/", include_in_schema=False)
-async def serve_game():
-    return FileResponse(os.path.join(_FRONTEND, "index.html"))
 
 
 @app.get("/health")
@@ -224,3 +219,7 @@ def _scripted_fallback(name: str, role: str, owner: str, cols: int, service: str
         f"My owner? It says '{owner}'. That's... a placeholder. Nobody claimed me.",
         "I pass data through. What happens before me isn't my problem.",
     ]
+
+
+# Serve frontend static files — must be last so API routes take priority
+app.mount("/", StaticFiles(directory=_FRONTEND, html=True), name="frontend")
