@@ -245,6 +245,94 @@ function hexColor(hex) {
   return `#${hex.toString(16).padStart(6, "0")}`;
 }
 
+function buildCharTextures(scene) {
+  const CHAR_RECTS = {
+    dim_customers: [
+      // outline
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      // head + hair
+      [5,1,6,5,'#e8b87a'],[5,1,6,2,'#2a1a0a'],
+      // worried X eyes, sweat drop
+      [6,3,1,1,'#cc4444'],[9,3,1,1,'#cc4444'],[11,2,1,2,'#88ccff'],
+      // downturned mouth
+      [7,5,1,1,'#b06050'],[8,6,2,1,'#b06050'],
+      // cream collar
+      [6,6,4,2,'#f0ead8'],
+      // dark suit + lapels
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // askew red tie
+      [7,8,1,4,'#cc3333'],[8,10,1,2,'#cc3333'],
+      // slumped arms + hands
+      [2,9,2,5,'#2a2a3a'],[12,9,2,5,'#2a2a3a'],[2,14,2,1,'#e8b87a'],[12,14,2,1,'#e8b87a'],
+      // legs + shoes
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+    stg_customers: [
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      [5,1,6,5,'#d4a86a'],[5,1,6,2,'#1a1000'],
+      // shifty sideways eyes
+      [7,3,1,1,'#1a1a1a'],[10,3,1,1,'#1a1a1a'],
+      // smug smirk
+      [8,5,3,1,'#a06040'],[8,4,1,1,'#a06040'],
+      [6,6,4,2,'#f0ead8'],
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // navy tie
+      [7,8,2,4,'#223366'],
+      // green pocket square
+      [5,9,2,1,'#44aa44'],
+      // crossed arms
+      [2,9,5,2,'#2a2a3a'],[9,9,5,2,'#2a2a3a'],[3,11,4,2,'#2a2a3a'],[9,11,4,2,'#2a2a3a'],
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+    customers: [
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      [5,1,6,5,'#e8c090'],[5,1,6,2,'#1a3010'],
+      // confident wide eyes
+      [6,3,2,1,'#1a1a1a'],[9,3,2,1,'#1a1a1a'],
+      // slight smile
+      [7,5,3,1,'#b07858'],
+      [6,6,4,2,'#f0ead8'],
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // blue tie (straight)
+      [7,8,2,5,'#2255aa'],
+      // arms straight down + hands
+      [2,9,2,5,'#2a2a3a'],[12,9,2,5,'#2a2a3a'],[2,14,2,1,'#e8c090'],[12,14,2,1,'#e8c090'],
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+    customer_metrics: [
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      [5,1,6,5,'#c8a878'],[5,1,6,2,'#0a1020'],
+      // raised brows
+      [6,2,2,1,'#888888'],[9,2,2,1,'#888888'],
+      // confused eyes
+      [6,3,1,1,'#1a1a1a'],[9,3,1,1,'#1a1a1a'],
+      // open mouth
+      [7,5,2,1,'#c07a5a'],
+      [6,6,4,2,'#f0ead8'],
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // grey tie
+      [7,8,2,4,'#666688'],
+      // white ? badge
+      [9,9,1,2,'#ddddff'],[9,12,1,1,'#ddddff'],
+      // shrugging arms raised
+      [1,7,3,3,'#2a2a3a'],[12,7,3,3,'#2a2a3a'],[1,6,2,2,'#c8a878'],[13,6,2,2,'#c8a878'],
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+  };
+
+  Object.entries(CHAR_RECTS).forEach(([key, rects]) => {
+    if (scene.textures.exists('char_' + key)) return; // already built
+    const tex = scene.textures.createCanvas('char_' + key, 16, 20);
+    const ctx = tex.getSourceImage().getContext('2d');
+    ctx.clearRect(0, 0, 16, 20);
+    rects.forEach(([x, y, w, h, color]) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    });
+    tex.refresh();
+  });
+}
+
 function drawGrid(scene, alpha = 0.35) {
   const g = scene.add.graphics();
   g.lineStyle(1, 0x1a2040, alpha);
@@ -357,6 +445,10 @@ class BriefingScene extends Phaser.Scene {
 // ─── SCENE: MAP ──────────────────────────────────────────────────────────────
 class MapScene extends Phaser.Scene {
   constructor() { super("MapScene"); }
+
+  preload() {
+    buildCharTextures(this);
+  }
 
   init() {
     this.evidence = [];
