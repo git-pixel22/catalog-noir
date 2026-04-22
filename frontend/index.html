@@ -16,6 +16,14 @@
 const BACKEND = "";
 const W = 900, H = 600;
 
+// Character asset config — drop a PNG in frontend/assets/ to override procedural fallback
+const CHARACTERS = {
+  dim_customers:    { url: '/assets/dim_customers.png' },
+  stg_customers:    { url: '/assets/stg_customers.png' },
+  customers:        { url: '/assets/customers.png' },
+  customer_metrics: { url: '/assets/customer_metrics.png' },
+};
+
 // Real FQNs from the sandbox
 const NODE_DEFS = [
   {
