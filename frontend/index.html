@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>CATALOG NOIR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #050508; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
     canvas { image-rendering: auto; display: block; }
+    #scanline { position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px); pointer-events: none; z-index: 9999; }
   </style>
 </head>
 <body>
@@ -15,6 +19,16 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const BACKEND = "";
 const W = 900, H = 600;
+const FONT_TITLE = "'Press Start 2P'";
+const FONT_BODY  = "VT323";
+
+// Character asset config — drop a PNG in frontend/assets/ to override procedural fallback
+const CHARACTERS = {
+  dim_customers:    { url: '/assets/dim_customers.png' },
+  stg_customers:    { url: '/assets/stg_customers.png' },
+  customers:        { url: '/assets/customers.png' },
+  customer_metrics: { url: '/assets/customer_metrics.png' },
+};
 
 // Real FQNs from the sandbox
 const NODE_DEFS = [
@@ -230,11 +244,145 @@ const SFX = (() => {
         osc(f, "sine", t, 0.4, 0.25);
       });
     },
+    ambientLoop() {
+      const c = get();
+      let active = true;
+
+      const master = c.createGain();
+      master.gain.setValueAtTime(0.12, c.currentTime);
+
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(820, c.currentTime);
+      lp.connect(master);
+      master.connect(c.destination);
+
+      function note(freq, dur, vol) {
+        if (!active) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(freq, c.currentTime);
+        g.gain.setValueAtTime(vol, c.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+        o.connect(g); g.connect(lp);
+        o.start(); o.stop(c.currentTime + dur + 0.05);
+      }
+
+      // Bass pulse every 2s
+      note(55, 0.7, 0.5);
+      const bassTimer = setInterval(() => note(55, 0.7, 0.5), 2000);
+
+      // Sparse pentatonic melody — A minor: A2 C3 D3 E3 G3
+      const melody = [110, 130, 147, 165, 196];
+      function scheduleMelody() {
+        if (!active) return;
+        note(melody[Math.floor(Math.random() * melody.length)], 1.1, 0.18);
+        setTimeout(scheduleMelody, 1400 + Math.random() * 1800);
+      }
+      setTimeout(scheduleMelody, 600);
+
+      return {
+        stop() {
+          active = false;
+          clearInterval(bassTimer);
+          master.gain.setValueAtTime(0, c.currentTime);
+        },
+      };
+    },
   };
 })();
 
 function hexColor(hex) {
   return `#${hex.toString(16).padStart(6, "0")}`;
+}
+
+function buildCharTextures(scene) {
+  const CHAR_RECTS = {
+    dim_customers: [
+      // outline
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      // head + hair
+      [5,1,6,5,'#e8b87a'],[5,1,6,2,'#2a1a0a'],
+      // worried X eyes, sweat drop
+      [6,3,1,1,'#cc4444'],[9,3,1,1,'#cc4444'],[11,2,1,2,'#88ccff'],
+      // downturned mouth
+      [7,5,1,1,'#b06050'],[8,6,2,1,'#b06050'],
+      // cream collar
+      [6,6,4,2,'#f0ead8'],
+      // dark suit + lapels
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // askew red tie
+      [7,8,1,4,'#cc3333'],[8,10,1,2,'#cc3333'],
+      // slumped arms + hands
+      [2,9,2,5,'#2a2a3a'],[12,9,2,5,'#2a2a3a'],[2,14,2,1,'#e8b87a'],[12,14,2,1,'#e8b87a'],
+      // legs + shoes
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+    stg_customers: [
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      [5,1,6,5,'#d4a86a'],[5,1,6,2,'#1a1000'],
+      // shifty sideways eyes
+      [7,3,1,1,'#1a1a1a'],[10,3,1,1,'#1a1a1a'],
+      // smug smirk
+      [8,5,3,1,'#a06040'],[8,4,1,1,'#a06040'],
+      [6,6,4,2,'#f0ead8'],
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // navy tie
+      [7,8,2,4,'#223366'],
+      // green pocket square
+      [5,9,2,1,'#44aa44'],
+      // crossed arms
+      [2,9,5,2,'#2a2a3a'],[9,9,5,2,'#2a2a3a'],[3,11,4,2,'#2a2a3a'],[9,11,4,2,'#2a2a3a'],
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+    customers: [
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      [5,1,6,5,'#e8c090'],[5,1,6,2,'#1a3010'],
+      // confident wide eyes
+      [6,3,2,1,'#1a1a1a'],[9,3,2,1,'#1a1a1a'],
+      // slight smile
+      [7,5,3,1,'#b07858'],
+      [6,6,4,2,'#f0ead8'],
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // blue tie (straight)
+      [7,8,2,5,'#2255aa'],
+      // arms straight down + hands
+      [2,9,2,5,'#2a2a3a'],[12,9,2,5,'#2a2a3a'],[2,14,2,1,'#e8c090'],[12,14,2,1,'#e8c090'],
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+    customer_metrics: [
+      [4,0,8,1,'#444455'],[3,1,1,18,'#444455'],[12,1,1,18,'#444455'],[4,19,8,1,'#444455'],
+      [5,1,6,5,'#c8a878'],[5,1,6,2,'#0a1020'],
+      // raised brows
+      [6,2,2,1,'#888888'],[9,2,2,1,'#888888'],
+      // confused eyes
+      [6,3,1,1,'#1a1a1a'],[9,3,1,1,'#1a1a1a'],
+      // open mouth
+      [7,5,2,1,'#c07a5a'],
+      [6,6,4,2,'#f0ead8'],
+      [4,8,8,5,'#2a2a3a'],[6,8,2,3,'#363646'],[8,8,2,3,'#363646'],
+      // grey tie
+      [7,8,2,4,'#666688'],
+      // white ? badge
+      [9,9,1,2,'#ddddff'],[9,12,1,1,'#ddddff'],
+      // shrugging arms raised
+      [1,7,3,3,'#2a2a3a'],[12,7,3,3,'#2a2a3a'],[1,6,2,2,'#c8a878'],[13,6,2,2,'#c8a878'],
+      [5,13,2,5,'#1e1e2e'],[9,13,2,5,'#1e1e2e'],[4,17,3,2,'#0a0a0a'],[9,17,3,2,'#0a0a0a'],
+    ],
+  };
+
+  Object.entries(CHAR_RECTS).forEach(([key, rects]) => {
+    if (scene.textures.exists('char_' + key)) return; // already built
+    const tex = scene.textures.createCanvas('char_' + key, 16, 20);
+    const ctx = tex.getSourceImage().getContext('2d');
+    ctx.clearRect(0, 0, 16, 20);
+    rects.forEach(([x, y, w, h, color]) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    });
+    tex.refresh();
+  });
 }
 
 function drawGrid(scene, alpha = 0.35) {
@@ -266,89 +414,124 @@ class BriefingScene extends Phaser.Scene {
   constructor() { super("BriefingScene"); }
 
   create() {
-    drawGrid(this, 0.25);
+    this.cameras.main.fadeIn(400, 0, 0, 0);
+    drawGrid(this, 0.18);
 
-    // Vignette effect
-    const vg = this.add.graphics();
-    vg.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.8, 0.8, 0, 0);
-    vg.fillRect(0, 0, W, H / 3);
+    // Letterbox bars
+    this.add.graphics().setDepth(5).fillStyle(0x000000, 1).fillRect(0, 0, W, 36);
+    this.add.graphics().setDepth(5).fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
 
-    this.add.text(W / 2, 55, "CATALOG NOIR", {
-      fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
-    }).setOrigin(0.5);
+    // ── HEADER (y=36–86) ────────────────────────────────────────
+    this.add.text(W / 2, 54, "CATALOG NOIR", {
+      fontFamily: FONT_TITLE, fontSize: "14px", color: "#e8c97e", letterSpacing: 4,
+    }).setOrigin(0.5).setDepth(6);
+    this.add.text(W / 2, 76, "Case I  ·  The Case of the Duplicate Customer", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
+    }).setOrigin(0.5).setDepth(6);
 
-    this.add.text(W / 2, 98, "Case File 001  |  The Case of the Duplicate Customer", {
-      fontFamily: "monospace", fontSize: "13px", color: "#707090",
-    }).setOrigin(0.5);
+    // ── CARD (y=88 to y=548, height=460) ────────────────────────
+    // Content fits: 460 - 52 (action bar) = 408px of content area
+    const cx = 40, cy = 88, cw = W - 80, ch = 460;
+    const L = cx + 16;
+    const R = cx + cw / 2 + 12;
+    const colW = cw / 2 - 28;
 
-    // Case file card — tall enough for all content
-    const cardY = 118, cardH = 356, cardW = 620;
     const card = this.add.graphics();
-    card.lineStyle(1, 0x404060, 1);
-    card.fillStyle(0x0c0c18, 1);
-    card.fillRect(W / 2 - cardW / 2, cardY, cardW, cardH);
-    card.strokeRect(W / 2 - cardW / 2, cardY, cardW, cardH);
-    card.lineStyle(1, 0xe8c97e, 0.5);
-    card.strokeRect(W / 2 - cardW / 2 + 4, cardY + 4, cardW - 8, cardH - 8);
+    card.fillStyle(0x07070f, 1).fillRect(cx, cy, cw, ch);
+    card.lineStyle(1, 0x4466ff, 0.5).strokeRect(cx, cy, cw, ch);
+    card.fillStyle(0x4466ff, 1).fillRect(cx, cy, cw / 2, 2);
+    card.fillStyle(0xaa44ff, 1).fillRect(cx + cw / 2, cy, cw / 2, 2);
 
-    this.add.text(W / 2 - cardW / 2 + 20, cardY + 16, "INCIDENT REPORT  //  14:03 UTC", {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+    const divLine = (y) => {
+      this.add.graphics().lineStyle(1, 0x1a1a28, 1)
+        .lineBetween(cx + 12, y, cx + cw - 12, y);
+    };
+    const lbl = (x, y, text) => this.add.text(x, y, text, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a",
+    });
+    const val = (x, y, text, color = "#c8c8e0", wrap = colW) => this.add.text(x, y, text, {
+      fontFamily: FONT_BODY, fontSize: "16px", color, wordWrap: { width: wrap },
     });
 
-    const lines = [
-      "Asset:   acme_nexus_analytics.ANALYTICS.MARTS.dim_customers",
-      "Type:    Snowflake table  |  Tier 1  |  Sales domain",
-      "Owner:   Nick Acosta",
-      "Columns: 12",
-      "",
-      "Test:    Customer Key Uniqueness",
-      "Status:  ABORTED",
-      "Error:   Duplicate customer_id values detected in production.",
-      "",
-      "Upstream lineage: stg_customers  <-  customers (MySQL/CRM)",
-      "",
-      "This is a Tier 1 asset. Every duplicate propagates",
-      "to customer_metrics, revenue dashboards, and ML models.",
-      "Find out who's responsible. Find out what they did.",
-    ];
-
-    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 40, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#c0c0d8", lineSpacing: 5,
+    // ── CARD HEADER (cy+10 to cy+34) ────────────────────────────
+    this.add.text(L, cy + 12, "INCIDENT REPORT  //  14:03 UTC", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#666688",
     });
+    const bx = cx + cw - 116;
+    this.add.graphics()
+      .fillStyle(0x2a0808, 1).fillRect(bx, cy + 9, 104, 22)
+      .lineStyle(1, 0xaa2222, 1).strokeRect(bx, cy + 9, 104, 22);
+    this.add.text(bx + 52, cy + 20, "● ABORTED", {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#cc3333",
+    }).setOrigin(0.5);
+    divLine(cy + 36);
 
-    const fullText = lines.join("\n");
-    let i = 0;
-    this.time.addEvent({
-      delay: 14,
-      repeat: fullText.length - 1,
-      callback: () => { bodyText.setText(fullText.slice(0, ++i)); },
+    // ── TWO-COLUMN METADATA (cy+44 to cy+196) ───────────────────
+    // Each field: label at rowY, value at rowY+16, next field at rowY+40
+    // LEFT COLUMN: ASSET / TYPE / OWNER / COLS
+    lbl(L, cy + 44, "ASSET");    val(L, cy + 60, "acme_nexus.ANALYTICS.MARTS.dim_customers");
+    lbl(L, cy + 84, "TYPE");     val(L, cy + 100, "Snowflake  ·  Tier 1  ·  Sales domain");
+    lbl(L, cy + 124, "OWNER");   val(L, cy + 140, "Nick Acosta");
+    lbl(L, cy + 164, "COLUMNS"); val(L, cy + 180, "12");
+
+    // RIGHT COLUMN: TEST / STATUS / ERROR
+    lbl(R, cy + 44, "TEST");    val(R, cy + 60, "Customer Key Uniqueness", "#c8c8e0", colW);
+    lbl(R, cy + 84, "STATUS");  val(R, cy + 100, "ABORTED", "#cc4444", colW);
+    lbl(R, cy + 124, "ERROR");  val(R, cy + 140, "Duplicate customer_id values detected in production.", "#cc8888", colW);
+
+    // Column separator (spans full metadata block height)
+    this.add.graphics().lineStyle(1, 0x1a1a28, 1)
+      .lineBetween(cx + cw / 2, cy + 38, cx + cw / 2, cy + 200);
+    divLine(cy + 200);
+
+    // ── LINEAGE (cy+208 to cy+262) ───────────────────────────────
+    lbl(L, cy + 208, "UPSTREAM LINEAGE");
+    val(L, cy + 224, "customers (MySQL/CRM)  ──►  stg_customers (Snowflake)  ──►  dim_customers (Tier 1)", "#c8c8e0", cw - 32);
+    divLine(cy + 264);
+
+    // ── BRIEF (cy+272 to cy+354) ─────────────────────────────────
+    lbl(L, cy + 272, "BRIEF");
+    const brief = "Tier 1 production asset. Customer Key Uniqueness test aborted 14:03 UTC. " +
+      "Every duplicate customer_id propagates downstream to dashboards and ML models. " +
+      "Something in this lineage chain is responsible. Find it.";
+    const briefObj = this.add.text(L, cy + 288, "", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#9090b8",
+      wordWrap: { width: cw - 32 }, lineSpacing: 2,
     });
+    let bi = 0;
+    this.time.addEvent({ delay: 12, repeat: brief.length - 1,
+      callback: () => briefObj.setText(brief.slice(0, ++bi)) });
 
-    const btnY = cardY + cardH + 18;
-
-    // Begin button
+    // ── ACTION BAR (cy+408 to cy+460) ────────────────────────────
+    divLine(cy + ch - 52);
     const btnBg = this.add.graphics();
-    btnBg.fillStyle(0xe8c97e, 1);
-    btnBg.fillRect(W / 2 - 120, btnY, 240, 44);
-
-    this.add.text(W / 2, btnY + 22, "BEGIN INVESTIGATION", {
-      fontFamily: "monospace", fontSize: "13px", color: "#0a0a14",
+    const drawBtn = (lit) => {
+      btnBg.clear().fillStyle(lit ? 0xffd88a : 0xe8c97e, 1)
+        .fillRect(cx + 16, cy + ch - 44, cw - 32, 36);
+    };
+    drawBtn(false);
+    this.add.text(W / 2, cy + ch - 26, "BEGIN INVESTIGATION", {
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#0a0a14",
     }).setOrigin(0.5);
-
-    const btnZone = this.add.zone(W / 2, btnY + 22, 240, 44).setInteractive({ useHandCursor: true });
-    btnZone.on("pointerover", () => btnBg.clear().fillStyle(0xffd88a, 1).fillRect(W / 2 - 120, btnY, 240, 44));
-    btnZone.on("pointerout",  () => btnBg.clear().fillStyle(0xe8c97e, 1).fillRect(W / 2 - 120, btnY, 240, 44));
-    btnZone.on("pointerdown", () => { SFX.whoosh(); this.scene.start("MapScene"); });
-
-    this.add.text(W / 2, btnY + 56, "Interview suspects. Collect evidence. Name the culprit.", {
-      fontFamily: "monospace", fontSize: "12px", color: "#b0b0c8",
-    }).setOrigin(0.5);
+    const btnZone = this.add.zone(W / 2, cy + ch - 26, cw - 32, 36)
+      .setInteractive({ useHandCursor: true });
+    btnZone.on("pointerover", () => drawBtn(true));
+    btnZone.on("pointerout",  () => drawBtn(false));
+    btnZone.on("pointerdown", () => {
+      SFX.whoosh();
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
+    });
   }
 }
 
 // ─── SCENE: MAP ──────────────────────────────────────────────────────────────
 class MapScene extends Phaser.Scene {
   constructor() { super("MapScene"); }
+
+  preload() {
+    buildCharTextures(this);
+  }
 
   init() {
     this.evidence = [];
@@ -360,17 +543,25 @@ class MapScene extends Phaser.Scene {
   }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.3);
+    // Start ambient on first enter, persist across re-entries
+    if (!this._ambient) {
+      this._ambient = SFX.ambientLoop();
+      this.events.once('shutdown', () => {
+        if (this._ambient) { this._ambient.stop(); this._ambient = null; }
+      });
+    }
     // Fetch live data for all nodes (non-blocking)
     NODE_DEFS.forEach(n => this._fetchNodeData(n));
 
     // Header
     this.add.text(W / 2, 22, "CATALOG NOIR", {
-      fontFamily: "monospace", fontSize: "20px", color: "#e8c97e", letterSpacing: 4,
+      fontFamily: FONT_TITLE, fontSize: "11px", color: "#e8c97e", letterSpacing: 3,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, 46, "Investigation Map  |  Case 001", {
-      fontFamily: "monospace", fontSize: "11px", color: "#9090b8",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#9090b8",
     }).setOrigin(0.5);
 
     // Draw edges
@@ -388,7 +579,7 @@ class MapScene extends Phaser.Scene {
 
     // Status bar
     this.statusBar = this.add.text(W / 2, H - 14, "Click a node to interview. Collect evidence to build your case.", {
-      fontFamily: "monospace", fontSize: "11px", color: "#a0a0c0",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#a0a0c0",
     }).setOrigin(0.5);
 
     // Accusation button (hidden until 2+ evidence)
@@ -422,7 +613,7 @@ class MapScene extends Phaser.Scene {
     const my = (from.y + to.y) / 2;
 
     this.add.text(mx, my - 14, edgeDef.cols, {
-      fontFamily: "monospace", fontSize: "9px", color: "#5070a0",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#5070a0",
     }).setOrigin(0.5);
 
     // Cyan diamond — click for lineage detail
@@ -457,13 +648,13 @@ class MapScene extends Phaser.Scene {
     ctr.add(bg);
 
     ctr.add(this.add.text(px + 16, py + 14, edgeDef.title, {
-      fontFamily: "monospace", fontSize: "11px", color: "#44ccdd",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#44ccdd",
     }));
     ctr.add(this.add.text(px + 16, py + 36, edgeDef.detail, {
-      fontFamily: "monospace", fontSize: "11px", color: "#c0c0d8", lineSpacing: 4,
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c0c0d8", lineSpacing: 4,
     }));
     ctr.add(this.add.text(px + 16, py + 96, edgeDef.clue, {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
     }));
 
     // Close on click anywhere
@@ -494,15 +685,15 @@ class MapScene extends Phaser.Scene {
     g.fillRect(bx, by, bw, 18);
 
     this.add.text(x, by + 9, badge, {
-      fontFamily: "monospace", fontSize: "10px", color: "#080814",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#080814",
     }).setOrigin(0.5);
 
     const labelText = this.add.text(x, y + 4, label, {
-      fontFamily: "monospace", fontSize: "11px", color: "#e0e0f0",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e0e0f0",
     }).setOrigin(0.5);
 
     const subText = this.add.text(x, y + 20, "...", {
-      fontFamily: "monospace", fontSize: "9px", color: "#7878a0",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#7878a0",
     }).setOrigin(0.5);
 
     if (role === "victim") {
@@ -547,16 +738,16 @@ class MapScene extends Phaser.Scene {
     panelGfx.strokeRect(px, py, pw, ph);
 
     this.add.text(px + pw / 2, py + 14, "EVIDENCE", {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
     }).setOrigin(0.5);
 
     this.evidenceList = this.add.text(px + 10, py + 32, "No evidence collected.", {
-      fontFamily: "monospace", fontSize: "9px", color: "#8080a8",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#8080a8",
       wordWrap: { width: pw - 20 }, lineSpacing: 4,
     });
 
     this.evidenceCountText = this.add.text(px + pw / 2, py + ph - 14, "0 items", {
-      fontFamily: "monospace", fontSize: "9px", color: "#7070a0",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#7070a0",
     }).setOrigin(0.5);
   }
 
@@ -565,12 +756,14 @@ class MapScene extends Phaser.Scene {
     const ax = W / 2 - aw / 2, ay = H - 76;
     this.accuseBg = this.add.graphics().setDepth(5);
     this.accuseText = this.add.text(W / 2, ay + ah / 2, "MAKE ACCUSATION", {
-      fontFamily: "monospace", fontSize: "13px", color: "#ffffff",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#ffffff",
     }).setOrigin(0.5).setVisible(false).setDepth(5);
 
     this.accuseZone = this.add.zone(W / 2, ay + ah / 2, aw, ah).setDepth(5);
     this.accuseZone.on("pointerdown", () => {
-      this.scene.start("AccusationScene", { evidence: this.evidence });
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start("AccusationScene", { evidence: this.evidence }));
     });
     this._accuseFlash = false;
   }
@@ -610,98 +803,80 @@ class MapScene extends Phaser.Scene {
 
     // Backdrop
     const backdrop = this.add.graphics();
-    backdrop.fillStyle(0x000000, 0.5);
-    backdrop.fillRect(0, 0, W, H);
+    backdrop.fillStyle(0x000000, 0.5).fillRect(0, 0, W, H);
     this.dlgContainer.add(backdrop);
 
-    // Box
+    // Box background
     const bg = this.add.graphics();
-    bg.fillStyle(0x08080f, 1);
-    bg.fillRect(dx, dy, dw, dh);
-    bg.lineStyle(2, 0xe8c97e, 0.9);
-    bg.strokeRect(dx, dy, dw, dh);
-    bg.lineStyle(1, 0x303050, 1);
-    bg.strokeRect(dx + 4, dy + 4, dw - 8, dh - 8);
+    bg.fillStyle(0x08080f, 1).fillRect(dx, dy, dw, dh);
+    bg.lineStyle(2, 0x4466ff, 0.9).strokeRect(dx, dy, dw, dh);
     this.dlgContainer.add(bg);
 
-    // Portrait placeholder
-    const portrait = this.add.graphics();
-    portrait.fillStyle(0x181828, 1);
-    portrait.fillRect(dx + 16, dy + 36, 70, 70);
-    portrait.lineStyle(1, 0x303050, 1);
-    portrait.strokeRect(dx + 16, dy + 36, 70, 70);
-    this.dlgContainer.add(portrait);
+    // Blue-purple gradient top bar
+    const bar = this.add.graphics();
+    bar.fillStyle(0x4466ff, 1).fillRect(dx, dy, dw / 2, 3);
+    bar.fillStyle(0xaa44ff, 1).fillRect(dx + dw / 2, dy, dw / 2, 3);
+    this.dlgContainer.add(bar);
 
-    this.dlgPortraitIcon = this.add.text(dx + 51, dy + 71, "?", {
-      fontFamily: "monospace", fontSize: "28px", color: "#404060",
-    }).setOrigin(0.5);
-    this.dlgContainer.add(this.dlgPortraitIcon);
-
-    // Name
-    this.dlgName = this.add.text(dx + 100, dy + 14, "", {
-      fontFamily: "monospace", fontSize: "13px", color: "#e8c97e",
+    // Speaker name
+    this.dlgName = this.add.text(dx + 16, dy + 14, "", {
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#ffdd88", fontStyle: "bold",
     });
     this.dlgContainer.add(this.dlgName);
 
-    // Service/owner line
-    this.dlgMeta = this.add.text(dx + 100, dy + 32, "", {
-      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+    // Metadata line
+    this.dlgMeta = this.add.text(dx + 16, dy + 32, "", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#aaaacc",
     });
     this.dlgContainer.add(this.dlgMeta);
 
     // Dialogue text
-    this.dlgText = this.add.text(dx + 100, dy + 52, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#c8c8e0",
-      wordWrap: { width: dw - 130 }, lineSpacing: 4,
+    this.dlgText = this.add.text(dx + 16, dy + 52, "", {
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#ccccff",
+      wordWrap: { width: dw - 32 }, lineSpacing: 4,
     });
     this.dlgContainer.add(this.dlgText);
 
-    // Collect evidence button
+    // COLLECT EVIDENCE button
     const collectBg = this.add.graphics();
-    collectBg.fillStyle(0x2a4a2a, 1);
-    collectBg.fillRect(dx + 16, dy + dh - 44, 180, 30);
-    collectBg.lineStyle(1, 0x40a040, 1);
-    collectBg.strokeRect(dx + 16, dy + dh - 44, 180, 30);
+    collectBg.fillStyle(0x1a1a3a, 1).fillRect(dx + 8, dy + dh - 44, 180, 30);
+    collectBg.lineStyle(1, 0x4466ff, 1).strokeRect(dx + 8, dy + dh - 44, 180, 30);
     this.dlgContainer.add(collectBg);
 
-    this.dlgCollectText = this.add.text(dx + 106, dy + dh - 29, "COLLECT EVIDENCE", {
-      fontFamily: "monospace", fontSize: "10px", color: "#60d060",
+    this.dlgCollectText = this.add.text(dx + 98, dy + dh - 29, "COLLECT EVIDENCE", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#88aaff",
     }).setOrigin(0.5);
     this.dlgContainer.add(this.dlgCollectText);
 
-    this.dlgCollectZone = this.add.zone(dx + 106, dy + dh - 29, 180, 30)
+    this.dlgCollectZone = this.add.zone(dx + 98, dy + dh - 29, 180, 30)
       .setInteractive({ useHandCursor: true });
     this.dlgCollectZone.on("pointerdown", () => this._collectEvidence());
     this.dlgContainer.add(this.dlgCollectZone);
 
-    // Next line button
+    // NEXT >> button
     const nextBg = this.add.graphics();
-    nextBg.fillStyle(0x1a2a4a, 1);
-    nextBg.fillRect(dx + 210, dy + dh - 44, 140, 30);
-    nextBg.lineStyle(1, 0x4060a0, 1);
-    nextBg.strokeRect(dx + 210, dy + dh - 44, 140, 30);
+    nextBg.fillStyle(0x111122, 1).fillRect(dx + 196, dy + dh - 44, 120, 30);
+    nextBg.lineStyle(1, 0x334477, 1).strokeRect(dx + 196, dy + dh - 44, 120, 30);
     this.dlgContainer.add(nextBg);
 
-    const nextLabel = this.add.text(dx + 280, dy + dh - 29, "NEXT  >>", {
-      fontFamily: "monospace", fontSize: "10px", color: "#6080c0",
+    const nextLabel = this.add.text(dx + 256, dy + dh - 29, "NEXT  >>", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#5577aa",
     }).setOrigin(0.5);
     this.dlgContainer.add(nextLabel);
 
-    const nextZone = this.add.zone(dx + 280, dy + dh - 29, 140, 30)
+    const nextZone = this.add.zone(dx + 256, dy + dh - 29, 120, 30)
       .setInteractive({ useHandCursor: true });
     nextZone.on("pointerdown", () => this._nextLine());
     this.dlgContainer.add(nextZone);
 
-    // Close button
+    // DISMISS button
     const closeBg = this.add.graphics();
-    closeBg.fillStyle(0x1a1a2a, 1);
-    closeBg.fillRect(dx + dw - 100, dy + dh - 44, 84, 30);
-    closeBg.lineStyle(1, 0x404060, 1);
-    closeBg.strokeRect(dx + dw - 100, dy + dh - 44, 84, 30);
+    closeBg.fillStyle(0x0d0d0d, 1).fillRect(dx + dw - 100, dy + dh - 44, 84, 30);
+    closeBg.lineStyle(1, 0x2a2a2a, 1).strokeRect(dx + dw - 100, dy + dh - 44, 84, 30);
     this.dlgContainer.add(closeBg);
 
     const closeLabel = this.add.text(dx + dw - 58, dy + dh - 29, "DISMISS", {
-      fontFamily: "monospace", fontSize: "10px", color: "#606070",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#666677",
     }).setOrigin(0.5);
     this.dlgContainer.add(closeLabel);
 
@@ -726,7 +901,7 @@ class MapScene extends Phaser.Scene {
 
     // Small label below the node
     this.add.text(x, y + bh / 2 + 10, "✓  INTERVIEWED", {
-      fontFamily: "monospace", fontSize: "8px", color: "#40d060",
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#40d060",
     }).setOrigin(0.5).setDepth(3);
   }
 
@@ -737,7 +912,7 @@ class MapScene extends Phaser.Scene {
     this._markInterviewed(nodeDef);
     if (!(nodeDef.key in this.lineIndex)) this.lineIndex[nodeDef.key] = 0;
 
-    this.dlgName.setText(nodeDef.label);
+    this.dlgName.setText("▶  " + nodeDef.label);
     const live = this.liveData[nodeDef.key];
     const service = live?.serviceType ?? "...";
     const owner = live?.owners?.[0]?.displayName ?? "Unknown";
@@ -745,9 +920,6 @@ class MapScene extends Phaser.Scene {
 
     const lines = this.dialogueLines[nodeDef.key] ?? SCRIPTED_DIALOGUE[nodeDef.key];
     const idx = this.lineIndex[nodeDef.key] % lines.length;
-    this.dlgPortraitIcon.setText(nodeDef.label[0].toUpperCase());
-    this.dlgPortraitIcon.setColor(hexColor(nodeDef.color));
-
     typewriterText(this, lines[idx], this.dlgText, 22);
     this.dlgContainer.setVisible(true);
     this.dlgContainer.setDepth(10);
@@ -852,19 +1024,20 @@ class AccusationScene extends Phaser.Scene {
   init(data) { this.evidence = data.evidence ?? []; }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.2);
 
     this.add.text(W / 2, 44, "ACCUSATION", {
-      fontFamily: "monospace", fontSize: "28px", color: "#e05050", letterSpacing: 6,
+      fontFamily: FONT_TITLE, fontSize: "14px", color: "#e05050", letterSpacing: 4,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, 80, "Who is responsible for the duplicate customer_id?", {
-      fontFamily: "monospace", fontSize: "13px", color: "#909090",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#909090",
     }).setOrigin(0.5);
 
     // Evidence recap
     this.add.text(W / 2, 116, "Evidence collected: " + this.evidence.map(e => e.evidenceTitle).join("  |  "), {
-      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
     }).setOrigin(0.5);
 
     // Only show nodes the player actually interviewed
@@ -880,30 +1053,42 @@ class AccusationScene extends Phaser.Scene {
       bg.strokeRect(bx, by, bw, bh);
 
       this.add.text(bx + 16, by + 14, s.label, {
-        fontFamily: "monospace", fontSize: "13px", color: hexColor(s.color),
+        fontFamily: FONT_BODY, fontSize: "18px", color: hexColor(s.color),
       });
       this.add.text(bx + 16, by + 36, `Type: ${s.badge}  |  Click to accuse`, {
-        fontFamily: "monospace", fontSize: "10px", color: "#404060",
+        fontFamily: FONT_BODY, fontSize: "15px", color: "#404060",
       });
+
+      // Mini portrait sprite
+      if (this.textures.exists('char_' + s.key)) {
+        this.add.sprite(bx + bw - 28, by + bh / 2, 'char_' + s.key)
+          .setDisplaySize(24, 30).setOrigin(0.5);
+      }
 
       const zone = this.add.zone(bx + bw / 2, by + bh / 2, bw, bh)
         .setInteractive({ useHandCursor: true });
       zone.on("pointerover", () => { bg.clear(); bg.fillStyle(0x181828, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 1); bg.strokeRect(bx, by, bw, bh); });
       zone.on("pointerout",  () => { bg.clear(); bg.fillStyle(0x10101c, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 0.8); bg.strokeRect(bx, by, bw, bh); });
       zone.on("pointerdown", () => {
-        if (s.key === GUILTY_KEY) {
-          this.scene.start("ConfrontScene", { evidence: this.evidence });
-        } else {
-          this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
-        }
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          if (s.key === GUILTY_KEY) {
+            this.scene.start("ConfrontScene", { evidence: this.evidence });
+          } else {
+            this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
+          }
+        });
       });
     });
 
     // Back button
     this.add.text(W / 2, H - 28, "< back to investigation", {
-      fontFamily: "monospace", fontSize: "11px", color: "#303050",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#303050",
     }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.start("MapScene"));
+      .on("pointerdown", () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
+      });
   }
 }
 
@@ -918,88 +1103,47 @@ class ConfrontScene extends Phaser.Scene {
   }
 
   create() {
-    drawGrid(this, 0.15);
+    this.cameras.main.fadeIn(400, 0, 0, 0);
+    drawGrid(this, 0.12);
+
+    // Subtle radial purple glow behind character
+    const glowBg = this.add.graphics();
+    glowBg.fillStyle(0x0d0820, 1).fillRect(0, 0, W / 2, H);
+    glowBg.fillStyle(0x050508, 1).fillRect(W / 2, 0, W / 2, H);
 
     // Header
-    this.add.text(W / 2, 28, "CONFRONTATION", {
-      fontFamily: "monospace", fontSize: "22px", color: "#e05050", letterSpacing: 6,
+    this.add.text(W / 2, 28, "— CONFRONTATION —", {
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#4466ff", letterSpacing: 4,
     }).setOrigin(0.5);
-    this.add.text(W / 2, 54, "stg_customers is cornered. Present evidence to break the alibi.", {
-      fontFamily: "monospace", fontSize: "11px", color: "#9090b0",
-    }).setOrigin(0.5);
-
-    // Detective — real image if available, geometric fallback otherwise
-    const detX = 80, detY = 460;
-    if (this.textures.exists("detective")) {
-      const img = this.add.image(detX, detY, "detective");
-      const scale = Math.min(160 / img.width, 300 / img.height);
-      img.setScale(scale).setOrigin(0.5, 1).setTintFill(0x6677aa);
-    } else {
-      // Fallback: clean silhouette
-      const det = this.add.graphics();
-      const dc = 0x252540;
-      const cx = detX, by = detY - 300;
-      det.fillStyle(dc, 1);
-      det.fillRect(cx - 18, by, 36, 42);
-      det.fillRect(cx - 46, by + 38, 92, 9);
-      det.fillCircle(cx, by + 68, 20);
-      det.fillRect(cx - 6, by + 86, 12, 10);
-      det.fillTriangle(cx, by + 90, cx - 52, by + 116, cx + 52, by + 116);
-      det.fillRect(cx - 38, by + 112, 76, 108);
-      det.fillRect(cx - 44, by + 212, 88, 10);
-    }
-    this.add.text(detX, detY + 10, "DETECTIVE", {
-      fontFamily: "monospace", fontSize: "9px", color: "#404060",
+    this.add.text(W / 2, 52, "stg_customers is cornered. Present evidence to break the alibi.", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#7070a0",
     }).setOrigin(0.5);
 
-    // Suspect box (right)
-    const sus = this.add.graphics();
-    sus.fillStyle(0xe0c040, 0.12);
-    sus.fillRect(640, 148, 140, 180);
-    sus.fillStyle(0x0e0e1a, 1);
-    sus.fillRect(644, 152, 132, 172);
-    sus.lineStyle(2, 0xe0c040, 1);
-    sus.strokeRect(644, 152, 132, 172);
-    sus.fillStyle(0xe0c040, 0.9);
-    sus.fillRect(644, 152, 132, 20);
-    this.add.text(710, 162, "SUSPECT", {
-      fontFamily: "monospace", fontSize: "10px", color: "#0a0a14",
-    }).setOrigin(0.5);
-    this.add.text(710, 206, "S", {
-      fontFamily: "monospace", fontSize: "44px", color: "#e0c040",
-    }).setOrigin(0.5);
-    this.add.text(710, 252, "stg_customers", {
-      fontFamily: "monospace", fontSize: "11px", color: "#d0d0e0",
-    }).setOrigin(0.5);
-    this.add.text(710, 270, "Snowflake  |  owner: test", {
-      fontFamily: "monospace", fontSize: "9px", color: "#606070",
-    }).setOrigin(0.5);
+    // Ace Attorney dialogue box — wider, centred, no character distractions
+    const bx = 100, by2 = 130, bw = 700, bh = 180;
+    const dlgBg = this.add.graphics();
+    dlgBg.fillStyle(0x0a0a16, 1).fillRect(bx, by2, bw, bh);
+    dlgBg.lineStyle(2, 0x4466ff, 1).strokeRect(bx, by2, bw, bh);
+    // gradient top bar
+    dlgBg.fillStyle(0x4466ff, 1).fillRect(bx, by2, bw / 2, 2);
+    dlgBg.fillStyle(0xaa44ff, 1).fillRect(bx + bw / 2, by2, bw / 2, 2);
 
-    // Speech bubble from suspect
-    const bub = this.add.graphics();
-    bub.fillStyle(0x0c0c1c, 1);
-    bub.fillRect(148, 142, 470, 166);
-    bub.lineStyle(1, 0xe0c040, 0.6);
-    bub.strokeRect(148, 142, 470, 166);
-    // bubble tail pointing right
-    bub.fillStyle(0x0c0c1c, 1);
-    bub.fillTriangle(618, 226, 638, 215, 638, 237);
-    bub.lineStyle(1, 0xe0c040, 0.6);
-    bub.lineBetween(618, 226, 638, 215);
-    bub.lineBetween(618, 226, 638, 237);
+    this.add.text(bx + 16, by2 + 12, "▶  stg_customers", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#ffdd88", fontStyle: "bold",
+    });
 
-    const stmtObj = this.add.text(162, 155, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#d0d0e8",
-      wordWrap: { width: 446 }, lineSpacing: 5,
+    const stmtObj = this.add.text(bx + 16, by2 + 38, "", {
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#ccccff",
+      wordWrap: { width: bw - 32 }, lineSpacing: 6,
     });
     typewriterText(this, CONFRONT_STATEMENT, stmtObj, 18);
 
-    // Instruction
-    this.add.text(W / 2, 328, "Select an evidence card to present:", {
-      fontFamily: "monospace", fontSize: "11px", color: "#8080a8",
+    // Evidence selection label
+    this.add.text(W / 2, 322, "Present evidence to break the alibi:", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#7070a0",
     }).setOrigin(0.5);
 
-    // Evidence cards (only non-victim ones)
+    // Evidence cards
     const cards = this.evidence.filter(e => nodeByKey[e.key]?.role !== "victim");
     const cW = 170, cH = 90, gap = 18;
     const totalW = cards.length * cW + (cards.length - 1) * gap;
@@ -1007,9 +1151,8 @@ class ConfrontScene extends Phaser.Scene {
 
     cards.forEach((ev, i) => {
       const nd = nodeByKey[ev.key];
-      const cx = startX + i * (cW + gap), cy = 354;
+      const cx = startX + i * (cW + gap), cy = 348;
       const cg = this._drawCard(cx, cy, cW, cH, nd, ev, false);
-
       const zone = this.add.zone(cx + cW / 2, cy + cH / 2, cW, cH)
         .setInteractive({ useHandCursor: true });
       zone.on("pointerover", () => { cg.clear(); this._drawCard(cx, cy, cW, cH, nd, ev, true, cg); });
@@ -1017,8 +1160,8 @@ class ConfrontScene extends Phaser.Scene {
       zone.on("pointerdown", () => this._present(ev.key));
     });
 
-    this.feedbackText = this.add.text(W / 2, 462, "", {
-      fontFamily: "monospace", fontSize: "11px", color: "#c06060",
+    this.feedbackText = this.add.text(W / 2, 458, "", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c06060",
     }).setOrigin(0.5);
   }
 
@@ -1033,10 +1176,10 @@ class ConfrontScene extends Phaser.Scene {
     gfx.fillRect(cx, cy, cW, 18);
     if (!g) {
       this.add.text(cx + cW / 2, cy + 9, ev.evidenceTitle, {
-        fontFamily: "monospace", fontSize: "8px", color: "#0a0a14",
+        fontFamily: FONT_BODY, fontSize: "13px", color: "#0a0a14",
       }).setOrigin(0.5);
       this.add.text(cx + cW / 2, cy + 44, (ev.evidenceText ?? "").split("\n")[0], {
-        fontFamily: "monospace", fontSize: "9px", color: "#9090b8",
+        fontFamily: FONT_BODY, fontSize: "14px", color: "#9090b8",
         wordWrap: { width: cW - 12 }, align: "center",
       }).setOrigin(0.5);
     }
@@ -1073,8 +1216,8 @@ class ConfrontScene extends Phaser.Scene {
 
     // 3. OBJECTION! punch in
     this.time.delayedCall(180, () => {
-      const obj = this.add.text(W / 2, H / 2 - 80, "OBJECTION!", {
-        fontFamily: "monospace", fontSize: "72px", color: "#ff2020",
+      const obj = this.add.text(W / 2, H / 2 - 80, "CAUGHT!", {
+        fontFamily: FONT_BODY, fontSize: "72px", color: "#ff2020",
         stroke: "#ffffff", strokeThickness: 4,
       }).setOrigin(0.5).setScale(2.8).setDepth(20);
       this.tweens.add({ targets: obj, scaleX: 1, scaleY: 1, duration: 400, ease: "Back.easeOut" });
@@ -1090,17 +1233,17 @@ class ConfrontScene extends Phaser.Scene {
       card.strokeRect(W / 2 - 280, H / 2 - 10, 560, 130);
 
       this.add.text(W / 2 - 260, H / 2 + 8, "EVIDENCE ACCEPTED:", {
-        fontFamily: "monospace", fontSize: "10px", color: "#e8c97e",
+        fontFamily: FONT_BODY, fontSize: "15px", color: "#e8c97e",
       }).setDepth(21);
 
       this.add.text(W / 2, H / 2 + 58, CONFRONT_REVEAL, {
-        fontFamily: "monospace", fontSize: "13px", color: "#e0e0f0",
+        fontFamily: FONT_BODY, fontSize: "18px", color: "#e0e0f0",
         align: "center", lineSpacing: 6,
       }).setOrigin(0.5).setDepth(21);
     });
 
     // 5. Transition to verdict
-    this.time.delayedCall(3600, () => {
+    this.time.delayedCall(5200, () => {
       this.scene.start("VerdictScene", { chosen: GUILTY_KEY, evidence: this.evidence });
     });
   }
@@ -1117,6 +1260,7 @@ class VerdictScene extends Phaser.Scene {
   }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.15);
 
     if (this.correct) {
@@ -1127,13 +1271,17 @@ class VerdictScene extends Phaser.Scene {
   }
 
   _buildCorrect() {
+    // White flash on correct verdict
+    const flash = this.add.graphics().setDepth(30);
+    flash.fillStyle(0xffffff, 1).fillRect(0, 0, W, H);
+    this.tweens.add({ targets: flash, alpha: 0, duration: 700, delay: 80 });
     SFX.caseClosed();
     this.add.text(W / 2, 60, "CASE CLOSED", {
-      fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
+      fontFamily: FONT_TITLE, fontSize: "16px", color: "#e8c97e", letterSpacing: 4,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, 100, "Detective rank: SENIOR INVESTIGATOR", {
-      fontFamily: "monospace", fontSize: "14px", color: "#60d060",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#60d060",
     }).setOrigin(0.5);
 
     const lines = [
@@ -1158,11 +1306,11 @@ class VerdictScene extends Phaser.Scene {
     card.strokeRect(W / 2 - 300, 118, 600, 420);
 
     this.add.text(W / 2, 136, "THE TRUTH", {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
     }).setOrigin(0.5);
 
     const bodyText = this.add.text(W / 2 - 280, 158, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#c0c0d8", lineSpacing: 5,
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#c0c0d8", lineSpacing: 5,
     });
     const fullText = lines.join("\n");
     let i = 0;
@@ -1180,19 +1328,19 @@ class VerdictScene extends Phaser.Scene {
     const cy = H / 2;
 
     this.add.text(W / 2, cy - 150, "WRONG ACCUSATION", {
-      fontFamily: "monospace", fontSize: "28px", color: "#e05050", letterSpacing: 4,
+      fontFamily: FONT_TITLE, fontSize: "13px", color: "#e05050", letterSpacing: 3,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, cy - 100, `You accused: ${chosen?.label ?? this.chosen}`, {
-      fontFamily: "monospace", fontSize: "14px", color: "#a0a0b8",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#a0a0b8",
     }).setOrigin(0.5);
 
     this.add.text(W / 2, cy - 30, "The real culprit is still out there.", {
-      fontFamily: "monospace", fontSize: "16px", color: "#c04040",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c04040",
     }).setOrigin(0.5);
 
     this.add.text(W / 2, cy + 10, "Go back. Interview more suspects. Follow the evidence.", {
-      fontFamily: "monospace", fontSize: "13px", color: "#8080a0",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#8080a0",
     }).setOrigin(0.5);
 
     const rb = this.add.graphics();
@@ -1202,10 +1350,13 @@ class VerdictScene extends Phaser.Scene {
     rb.strokeRect(W / 2 - 120, cy + 60, 240, 44);
 
     this.add.text(W / 2, cy + 82, "REINVESTIGATE", {
-      fontFamily: "monospace", fontSize: "12px", color: "#d08080",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#d08080",
     }).setOrigin(0.5);
     this.add.zone(W / 2, cy + 82, 240, 44).setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.start("MapScene"));
+      .on("pointerdown", () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
+      });
   }
 
   _addFooter() {
@@ -1215,29 +1366,37 @@ class VerdictScene extends Phaser.Scene {
     replayBg.lineStyle(1, 0x505070, 1);
     replayBg.strokeRect(W / 2 - 110, H - 56, 220, 38);
     this.add.text(W / 2, H - 37, "REPLAY CASE", {
-      fontFamily: "monospace", fontSize: "12px", color: "#8080a0",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#8080a0",
     }).setOrigin(0.5);
     this.add.zone(W / 2, H - 37, 220, 38).setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.start("BriefingScene"));
+      .on("pointerdown", () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("BriefingScene"));
+      });
 
     this.add.text(W / 2, H - 10, "Catalog Noir — every clue is real OpenMetadata data", {
-      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
     }).setOrigin(0.5);
   }
 }
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
-new Phaser.Game({
-  type: Phaser.AUTO,
-  width: W,
-  height: H,
-  backgroundColor: "#050508",
-  scene: [BriefingScene, MapScene, AccusationScene, ConfrontScene, VerdictScene],
-  parent: document.body,
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
+document.body.insertAdjacentHTML('beforeend', '<div id="scanline"></div>');
+
+document.fonts.ready.then(() => {
+  new Phaser.Game({
+    type: Phaser.AUTO,
+    width: W,
+    height: H,
+    backgroundColor: "#050508",
+    pixelArt: true,
+    scene: [BriefingScene, MapScene, AccusationScene, ConfrontScene, VerdictScene],
+    parent: document.body,
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+  });
 });
 </script>
 </body>
