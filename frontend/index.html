@@ -705,103 +705,97 @@ class MapScene extends Phaser.Scene {
   _buildDialogueBox() {
     const dw = 580, dh = 220;
     const dx = (W - dw) / 2, dy = H - dh - 24;
+    const portraitW = 64;
 
     this.dlgContainer = this.add.container(0, 0).setVisible(false);
 
     // Backdrop
     const backdrop = this.add.graphics();
-    backdrop.fillStyle(0x000000, 0.5);
-    backdrop.fillRect(0, 0, W, H);
+    backdrop.fillStyle(0x000000, 0.5).fillRect(0, 0, W, H);
     this.dlgContainer.add(backdrop);
 
-    // Box
+    // Box background
     const bg = this.add.graphics();
-    bg.fillStyle(0x08080f, 1);
-    bg.fillRect(dx, dy, dw, dh);
-    bg.lineStyle(2, 0xe8c97e, 0.9);
-    bg.strokeRect(dx, dy, dw, dh);
-    bg.lineStyle(1, 0x303050, 1);
-    bg.strokeRect(dx + 4, dy + 4, dw - 8, dh - 8);
+    bg.fillStyle(0x08080f, 1).fillRect(dx, dy, dw, dh);
+    bg.lineStyle(2, 0x4466ff, 0.9).strokeRect(dx, dy, dw, dh);
     this.dlgContainer.add(bg);
 
-    // Portrait placeholder
-    const portrait = this.add.graphics();
-    portrait.fillStyle(0x181828, 1);
-    portrait.fillRect(dx + 16, dy + 36, 70, 70);
-    portrait.lineStyle(1, 0x303050, 1);
-    portrait.strokeRect(dx + 16, dy + 36, 70, 70);
-    this.dlgContainer.add(portrait);
+    // Blue-purple gradient top bar (drawn as two overlapping rects)
+    const bar = this.add.graphics();
+    bar.fillStyle(0x4466ff, 1).fillRect(dx, dy, dw / 2, 3);
+    bar.fillStyle(0xaa44ff, 1).fillRect(dx + dw / 2, dy, dw / 2, 3);
+    this.dlgContainer.add(bar);
 
-    this.dlgPortraitIcon = this.add.text(dx + 51, dy + 71, "?", {
-      fontFamily: "monospace", fontSize: "28px", color: "#404060",
-    }).setOrigin(0.5);
-    this.dlgContainer.add(this.dlgPortraitIcon);
+    // Portrait column background
+    const portBg = this.add.graphics();
+    portBg.fillStyle(0x060610, 1).fillRect(dx, dy + 3, portraitW, dh - 3);
+    portBg.lineStyle(1, 0x1a1a30, 1).lineBetween(dx + portraitW, dy + 3, dx + portraitW, dy + dh);
+    this.dlgContainer.add(portBg);
 
-    // Name
-    this.dlgName = this.add.text(dx + 100, dy + 14, "", {
-      fontFamily: "monospace", fontSize: "13px", color: "#e8c97e",
+    // Portrait sprite (sits at bottom of portrait column)
+    this.dlgPortraitSprite = this.add.sprite(dx + portraitW / 2, dy + dh - 8, 'char_dim_customers')
+      .setDisplaySize(40, 50).setOrigin(0.5, 1);
+    this.dlgContainer.add(this.dlgPortraitSprite);
+
+    // Speaker name
+    this.dlgName = this.add.text(dx + portraitW + 12, dy + 14, "", {
+      fontFamily: "monospace", fontSize: "13px", color: "#ffdd88", fontStyle: "bold",
     });
     this.dlgContainer.add(this.dlgName);
 
-    // Service/owner line
-    this.dlgMeta = this.add.text(dx + 100, dy + 32, "", {
-      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+    // Metadata line
+    this.dlgMeta = this.add.text(dx + portraitW + 12, dy + 32, "", {
+      fontFamily: "monospace", fontSize: "10px", color: "#aaaacc",
     });
     this.dlgContainer.add(this.dlgMeta);
 
     // Dialogue text
-    this.dlgText = this.add.text(dx + 100, dy + 52, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#c8c8e0",
-      wordWrap: { width: dw - 130 }, lineSpacing: 4,
+    this.dlgText = this.add.text(dx + portraitW + 12, dy + 52, "", {
+      fontFamily: "monospace", fontSize: "12px", color: "#ccccff",
+      wordWrap: { width: dw - portraitW - 24 }, lineSpacing: 4,
     });
     this.dlgContainer.add(this.dlgText);
 
-    // Collect evidence button
+    // COLLECT EVIDENCE button
     const collectBg = this.add.graphics();
-    collectBg.fillStyle(0x2a4a2a, 1);
-    collectBg.fillRect(dx + 16, dy + dh - 44, 180, 30);
-    collectBg.lineStyle(1, 0x40a040, 1);
-    collectBg.strokeRect(dx + 16, dy + dh - 44, 180, 30);
+    collectBg.fillStyle(0x1a1a3a, 1).fillRect(dx + portraitW + 8, dy + dh - 44, 180, 30);
+    collectBg.lineStyle(1, 0x4466ff, 1).strokeRect(dx + portraitW + 8, dy + dh - 44, 180, 30);
     this.dlgContainer.add(collectBg);
 
-    this.dlgCollectText = this.add.text(dx + 106, dy + dh - 29, "COLLECT EVIDENCE", {
-      fontFamily: "monospace", fontSize: "10px", color: "#60d060",
+    this.dlgCollectText = this.add.text(dx + portraitW + 98, dy + dh - 29, "COLLECT EVIDENCE", {
+      fontFamily: "monospace", fontSize: "10px", color: "#88aaff",
     }).setOrigin(0.5);
     this.dlgContainer.add(this.dlgCollectText);
 
-    this.dlgCollectZone = this.add.zone(dx + 106, dy + dh - 29, 180, 30)
+    this.dlgCollectZone = this.add.zone(dx + portraitW + 98, dy + dh - 29, 180, 30)
       .setInteractive({ useHandCursor: true });
     this.dlgCollectZone.on("pointerdown", () => this._collectEvidence());
     this.dlgContainer.add(this.dlgCollectZone);
 
-    // Next line button
+    // NEXT >> button
     const nextBg = this.add.graphics();
-    nextBg.fillStyle(0x1a2a4a, 1);
-    nextBg.fillRect(dx + 210, dy + dh - 44, 140, 30);
-    nextBg.lineStyle(1, 0x4060a0, 1);
-    nextBg.strokeRect(dx + 210, dy + dh - 44, 140, 30);
+    nextBg.fillStyle(0x111122, 1).fillRect(dx + portraitW + 196, dy + dh - 44, 120, 30);
+    nextBg.lineStyle(1, 0x334477, 1).strokeRect(dx + portraitW + 196, dy + dh - 44, 120, 30);
     this.dlgContainer.add(nextBg);
 
-    const nextLabel = this.add.text(dx + 280, dy + dh - 29, "NEXT  >>", {
-      fontFamily: "monospace", fontSize: "10px", color: "#6080c0",
+    const nextLabel = this.add.text(dx + portraitW + 256, dy + dh - 29, "NEXT  >>", {
+      fontFamily: "monospace", fontSize: "10px", color: "#5577aa",
     }).setOrigin(0.5);
     this.dlgContainer.add(nextLabel);
 
-    const nextZone = this.add.zone(dx + 280, dy + dh - 29, 140, 30)
+    const nextZone = this.add.zone(dx + portraitW + 256, dy + dh - 29, 120, 30)
       .setInteractive({ useHandCursor: true });
     nextZone.on("pointerdown", () => this._nextLine());
     this.dlgContainer.add(nextZone);
 
-    // Close button
+    // DISMISS button
     const closeBg = this.add.graphics();
-    closeBg.fillStyle(0x1a1a2a, 1);
-    closeBg.fillRect(dx + dw - 100, dy + dh - 44, 84, 30);
-    closeBg.lineStyle(1, 0x404060, 1);
-    closeBg.strokeRect(dx + dw - 100, dy + dh - 44, 84, 30);
+    closeBg.fillStyle(0x0d0d0d, 1).fillRect(dx + dw - 100, dy + dh - 44, 84, 30);
+    closeBg.lineStyle(1, 0x2a2a2a, 1).strokeRect(dx + dw - 100, dy + dh - 44, 84, 30);
     this.dlgContainer.add(closeBg);
 
     const closeLabel = this.add.text(dx + dw - 58, dy + dh - 29, "DISMISS", {
-      fontFamily: "monospace", fontSize: "10px", color: "#606070",
+      fontFamily: "monospace", fontSize: "10px", color: "#444455",
     }).setOrigin(0.5);
     this.dlgContainer.add(closeLabel);
 
@@ -837,7 +831,7 @@ class MapScene extends Phaser.Scene {
     this._markInterviewed(nodeDef);
     if (!(nodeDef.key in this.lineIndex)) this.lineIndex[nodeDef.key] = 0;
 
-    this.dlgName.setText(nodeDef.label);
+    this.dlgName.setText("▶  " + nodeDef.label);
     const live = this.liveData[nodeDef.key];
     const service = live?.serviceType ?? "...";
     const owner = live?.owners?.[0]?.displayName ?? "Unknown";
@@ -845,8 +839,7 @@ class MapScene extends Phaser.Scene {
 
     const lines = this.dialogueLines[nodeDef.key] ?? SCRIPTED_DIALOGUE[nodeDef.key];
     const idx = this.lineIndex[nodeDef.key] % lines.length;
-    this.dlgPortraitIcon.setText(nodeDef.label[0].toUpperCase());
-    this.dlgPortraitIcon.setColor(hexColor(nodeDef.color));
+    this.dlgPortraitSprite.setTexture('char_' + nodeDef.key);
 
     typewriterText(this, lines[idx], this.dlgText, 22);
     this.dlgContainer.setVisible(true);
