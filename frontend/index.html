@@ -421,104 +421,99 @@ class BriefingScene extends Phaser.Scene {
     this.add.graphics().setDepth(5).fillStyle(0x000000, 1).fillRect(0, 0, W, 36);
     this.add.graphics().setDepth(5).fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
 
-    // ── HEADER ──────────────────────────────────────────────────
+    // ── HEADER (y=36–86) ────────────────────────────────────────
     this.add.text(W / 2, 54, "CATALOG NOIR", {
       fontFamily: FONT_TITLE, fontSize: "14px", color: "#e8c97e", letterSpacing: 4,
     }).setOrigin(0.5).setDepth(6);
-
     this.add.text(W / 2, 76, "Case I  ·  The Case of the Duplicate Customer", {
       fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
     }).setOrigin(0.5).setDepth(6);
 
-    // ── CARD ────────────────────────────────────────────────────
-    // Card fills from y=88 to y=540, button lives inside at bottom
-    const cx = 40, cy = 88, cw = W - 80, ch = 452;
+    // ── CARD (y=88 to y=548, height=460) ────────────────────────
+    // Content fits: 460 - 52 (action bar) = 408px of content area
+    const cx = 40, cy = 88, cw = W - 80, ch = 460;
+    const L = cx + 16;
+    const R = cx + cw / 2 + 12;
+    const colW = cw / 2 - 28;
+
     const card = this.add.graphics();
     card.fillStyle(0x07070f, 1).fillRect(cx, cy, cw, ch);
     card.lineStyle(1, 0x4466ff, 0.5).strokeRect(cx, cy, cw, ch);
     card.fillStyle(0x4466ff, 1).fillRect(cx, cy, cw / 2, 2);
     card.fillStyle(0xaa44ff, 1).fillRect(cx + cw / 2, cy, cw / 2, 2);
 
-    const div = (y) => {
-      const g = this.add.graphics();
-      g.lineStyle(1, 0x1a1a28, 1).lineBetween(cx + 12, y, cx + cw - 12, y);
+    const divLine = (y) => {
+      this.add.graphics().lineStyle(1, 0x1a1a28, 1)
+        .lineBetween(cx + 12, y, cx + cw - 12, y);
     };
+    const lbl = (x, y, text) => this.add.text(x, y, text, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a",
+    });
+    const val = (x, y, text, color = "#c8c8e0", wrap = colW) => this.add.text(x, y, text, {
+      fontFamily: FONT_BODY, fontSize: "16px", color, wordWrap: { width: wrap },
+    });
 
-    // ── CARD HEADER ROW ─────────────────────────────────────────
-    this.add.text(cx + 16, cy + 12, "INCIDENT REPORT  //  14:03 UTC", {
+    // ── CARD HEADER (cy+10 to cy+34) ────────────────────────────
+    this.add.text(L, cy + 12, "INCIDENT REPORT  //  14:03 UTC", {
       fontFamily: FONT_BODY, fontSize: "15px", color: "#666688",
     });
-    // ABORTED badge
-    const badgeG = this.add.graphics();
-    badgeG.fillStyle(0x2a0808, 1).fillRect(cx + cw - 118, cy + 9, 106, 22);
-    badgeG.lineStyle(1, 0xaa2222, 1).strokeRect(cx + cw - 118, cy + 9, 106, 22);
-    this.add.text(cx + cw - 65, cy + 20, "● ABORTED", {
+    const bx = cx + cw - 116;
+    this.add.graphics()
+      .fillStyle(0x2a0808, 1).fillRect(bx, cy + 9, 104, 22)
+      .lineStyle(1, 0xaa2222, 1).strokeRect(bx, cy + 9, 104, 22);
+    this.add.text(bx + 52, cy + 20, "● ABORTED", {
       fontFamily: FONT_BODY, fontSize: "14px", color: "#cc3333",
     }).setOrigin(0.5);
-    div(cy + 36);
+    divLine(cy + 36);
 
-    // ── TWO-COLUMN METADATA ──────────────────────────────────────
-    const L = cx + 16;        // left col x
-    const R = cx + cw / 2 + 8; // right col x
-    const colW = cw / 2 - 28;
-    let y = cy + 44;
-    const field = (x, label, value, color = "#c8c8e0") => {
-      this.add.text(x, y, label, { fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a" });
-      this.add.text(x, y + 16, value, {
-        fontFamily: FONT_BODY, fontSize: "16px", color,
-        wordWrap: { width: colW },
-      });
-    };
+    // ── TWO-COLUMN METADATA (cy+44 to cy+196) ───────────────────
+    // Each field: label at rowY, value at rowY+16, next field at rowY+40
+    // LEFT COLUMN: ASSET / TYPE / OWNER / COLS
+    lbl(L, cy + 44, "ASSET");    val(L, cy + 60, "acme_nexus.ANALYTICS.MARTS.dim_customers");
+    lbl(L, cy + 84, "TYPE");     val(L, cy + 100, "Snowflake  ·  Tier 1  ·  Sales domain");
+    lbl(L, cy + 124, "OWNER");   val(L, cy + 140, "Nick Acosta");
+    lbl(L, cy + 164, "COLUMNS"); val(L, cy + 180, "12");
 
-    // Left column
-    field(L, "ASSET", "acme_nexus.ANALYTICS.MARTS.dim_customers");       y += 42;
-    field(L, "TYPE",  "Snowflake  ·  Tier 1  ·  Sales domain");          y += 42;
-    field(L, "OWNER", "Nick Acosta");                                      y += 42;
-    field(L, "COLS",  "12");
+    // RIGHT COLUMN: TEST / STATUS / ERROR
+    lbl(R, cy + 44, "TEST");    val(R, cy + 60, "Customer Key Uniqueness", "#c8c8e0", colW);
+    lbl(R, cy + 84, "STATUS");  val(R, cy + 100, "ABORTED", "#cc4444", colW);
+    lbl(R, cy + 124, "ERROR");  val(R, cy + 140, "Duplicate customer_id values detected in production.", "#cc8888", colW);
 
-    // Right column
-    y = cy + 44;
-    field(R, "TEST",   "Customer Key Uniqueness");                         y += 42;
-    field(R, "STATUS", "ABORTED", "#cc4444");                              y += 42;
-    field(R, "ERROR",  "Duplicate customer_id values\ndetected in production.", "#cc8888");
+    // Column separator (spans full metadata block height)
+    this.add.graphics().lineStyle(1, 0x1a1a28, 1)
+      .lineBetween(cx + cw / 2, cy + 38, cx + cw / 2, cy + 200);
+    divLine(cy + 200);
 
-    // Column separator
-    const colSepG = this.add.graphics();
-    colSepG.lineStyle(1, 0x1a1a28, 1).lineBetween(cx + cw / 2, cy + 40, cx + cw / 2, cy + 174);
+    // ── LINEAGE (cy+208 to cy+262) ───────────────────────────────
+    lbl(L, cy + 208, "UPSTREAM LINEAGE");
+    val(L, cy + 224, "customers (MySQL/CRM)  ──►  stg_customers (Snowflake)  ──►  dim_customers (Tier 1)", "#c8c8e0", cw - 32);
+    divLine(cy + 264);
 
-    // ── LINEAGE ──────────────────────────────────────────────────
-    div(cy + 176);
-    this.add.text(L, cy + 184, "UPSTREAM LINEAGE", { fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a" });
-    this.add.text(L, cy + 200, "customers (MySQL/CRM)  ──►  stg_customers (Snowflake)  ──►  dim_customers (Tier 1)", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#c8c8e0",
-      wordWrap: { width: cw - 32 },
-    });
-
-    // ── INCIDENT BRIEF ───────────────────────────────────────────
-    div(cy + 242);
-    this.add.text(L, cy + 250, "BRIEF", { fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a" });
-    const brief = "Tier 1 production asset. Customer Key Uniqueness test aborted 14:03 UTC.\nEvery duplicate customer_id propagates downstream to dashboards and ML models.\nSomething in this lineage chain is responsible. Find it.";
-    const briefObj = this.add.text(L, cy + 266, "", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#9090b8", lineSpacing: 2,
-      wordWrap: { width: cw - 32 },
+    // ── BRIEF (cy+272 to cy+354) ─────────────────────────────────
+    lbl(L, cy + 272, "BRIEF");
+    const brief = "Tier 1 production asset. Customer Key Uniqueness test aborted 14:03 UTC. " +
+      "Every duplicate customer_id propagates downstream to dashboards and ML models. " +
+      "Something in this lineage chain is responsible. Find it.";
+    const briefObj = this.add.text(L, cy + 288, "", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#9090b8",
+      wordWrap: { width: cw - 32 }, lineSpacing: 2,
     });
     let bi = 0;
-    this.time.addEvent({ delay: 12, repeat: brief.length - 1, callback: () => briefObj.setText(brief.slice(0, ++bi)) });
+    this.time.addEvent({ delay: 12, repeat: brief.length - 1,
+      callback: () => briefObj.setText(brief.slice(0, ++bi)) });
 
-    // ── ACTION BAR (bottom of card) ──────────────────────────────
-    const actionY = cy + ch - 52;
-    div(actionY);
+    // ── ACTION BAR (cy+408 to cy+460) ────────────────────────────
+    divLine(cy + ch - 52);
     const btnBg = this.add.graphics();
-    const drawBtn = (bright) => {
-      btnBg.clear();
-      btnBg.fillStyle(bright ? 0xffd88a : 0xe8c97e, 1)
-        .fillRect(cx + 16, actionY + 8, cw - 32, 36);
+    const drawBtn = (lit) => {
+      btnBg.clear().fillStyle(lit ? 0xffd88a : 0xe8c97e, 1)
+        .fillRect(cx + 16, cy + ch - 44, cw - 32, 36);
     };
     drawBtn(false);
-    this.add.text(W / 2, actionY + 26, "BEGIN INVESTIGATION", {
+    this.add.text(W / 2, cy + ch - 26, "BEGIN INVESTIGATION", {
       fontFamily: FONT_BODY, fontSize: "20px", color: "#0a0a14",
     }).setOrigin(0.5);
-    const btnZone = this.add.zone(W / 2, actionY + 26, cw - 32, 36)
+    const btnZone = this.add.zone(W / 2, cy + ch - 26, cw - 32, 36)
       .setInteractive({ useHandCursor: true });
     btnZone.on("pointerover", () => drawBtn(true));
     btnZone.on("pointerout",  () => drawBtn(false));
