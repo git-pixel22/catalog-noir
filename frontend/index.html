@@ -773,7 +773,6 @@ class MapScene extends Phaser.Scene {
   _buildDialogueBox() {
     const dw = 580, dh = 220;
     const dx = (W - dw) / 2, dy = H - dh - 24;
-    const portraitW = 64;
 
     this.dlgContainer = this.add.container(0, 0).setVisible(false);
 
@@ -788,70 +787,59 @@ class MapScene extends Phaser.Scene {
     bg.lineStyle(2, 0x4466ff, 0.9).strokeRect(dx, dy, dw, dh);
     this.dlgContainer.add(bg);
 
-    // Blue-purple gradient top bar (drawn as two overlapping rects)
+    // Blue-purple gradient top bar
     const bar = this.add.graphics();
     bar.fillStyle(0x4466ff, 1).fillRect(dx, dy, dw / 2, 3);
     bar.fillStyle(0xaa44ff, 1).fillRect(dx + dw / 2, dy, dw / 2, 3);
     this.dlgContainer.add(bar);
 
-    // Portrait column background
-    const portBg = this.add.graphics();
-    portBg.fillStyle(0x060610, 1).fillRect(dx, dy + 3, portraitW, dh - 3);
-    portBg.lineStyle(1, 0x1a1a30, 1).lineBetween(dx + portraitW, dy + 3, dx + portraitW, dy + dh);
-    this.dlgContainer.add(portBg);
-
-    // Portrait sprite (sits at bottom of portrait column)
-    this.dlgPortraitSprite = this.add.sprite(dx + portraitW / 2, dy + dh - 8, 'char_dim_customers')
-      .setDisplaySize(40, 50).setOrigin(0.5, 1);
-    this.dlgContainer.add(this.dlgPortraitSprite);
-
     // Speaker name
-    this.dlgName = this.add.text(dx + portraitW + 12, dy + 14, "", {
+    this.dlgName = this.add.text(dx + 16, dy + 14, "", {
       fontFamily: "monospace", fontSize: "13px", color: "#ffdd88", fontStyle: "bold",
     });
     this.dlgContainer.add(this.dlgName);
 
     // Metadata line
-    this.dlgMeta = this.add.text(dx + portraitW + 12, dy + 32, "", {
+    this.dlgMeta = this.add.text(dx + 16, dy + 32, "", {
       fontFamily: "monospace", fontSize: "10px", color: "#aaaacc",
     });
     this.dlgContainer.add(this.dlgMeta);
 
     // Dialogue text
-    this.dlgText = this.add.text(dx + portraitW + 12, dy + 52, "", {
+    this.dlgText = this.add.text(dx + 16, dy + 52, "", {
       fontFamily: "monospace", fontSize: "12px", color: "#ccccff",
-      wordWrap: { width: dw - portraitW - 24 }, lineSpacing: 4,
+      wordWrap: { width: dw - 32 }, lineSpacing: 4,
     });
     this.dlgContainer.add(this.dlgText);
 
     // COLLECT EVIDENCE button
     const collectBg = this.add.graphics();
-    collectBg.fillStyle(0x1a1a3a, 1).fillRect(dx + portraitW + 8, dy + dh - 44, 180, 30);
-    collectBg.lineStyle(1, 0x4466ff, 1).strokeRect(dx + portraitW + 8, dy + dh - 44, 180, 30);
+    collectBg.fillStyle(0x1a1a3a, 1).fillRect(dx + 8, dy + dh - 44, 180, 30);
+    collectBg.lineStyle(1, 0x4466ff, 1).strokeRect(dx + 8, dy + dh - 44, 180, 30);
     this.dlgContainer.add(collectBg);
 
-    this.dlgCollectText = this.add.text(dx + portraitW + 98, dy + dh - 29, "COLLECT EVIDENCE", {
+    this.dlgCollectText = this.add.text(dx + 98, dy + dh - 29, "COLLECT EVIDENCE", {
       fontFamily: "monospace", fontSize: "10px", color: "#88aaff",
     }).setOrigin(0.5);
     this.dlgContainer.add(this.dlgCollectText);
 
-    this.dlgCollectZone = this.add.zone(dx + portraitW + 98, dy + dh - 29, 180, 30)
+    this.dlgCollectZone = this.add.zone(dx + 98, dy + dh - 29, 180, 30)
       .setInteractive({ useHandCursor: true });
     this.dlgCollectZone.on("pointerdown", () => this._collectEvidence());
     this.dlgContainer.add(this.dlgCollectZone);
 
     // NEXT >> button
     const nextBg = this.add.graphics();
-    nextBg.fillStyle(0x111122, 1).fillRect(dx + portraitW + 196, dy + dh - 44, 120, 30);
-    nextBg.lineStyle(1, 0x334477, 1).strokeRect(dx + portraitW + 196, dy + dh - 44, 120, 30);
+    nextBg.fillStyle(0x111122, 1).fillRect(dx + 196, dy + dh - 44, 120, 30);
+    nextBg.lineStyle(1, 0x334477, 1).strokeRect(dx + 196, dy + dh - 44, 120, 30);
     this.dlgContainer.add(nextBg);
 
-    const nextLabel = this.add.text(dx + portraitW + 256, dy + dh - 29, "NEXT  >>", {
+    const nextLabel = this.add.text(dx + 256, dy + dh - 29, "NEXT  >>", {
       fontFamily: "monospace", fontSize: "10px", color: "#5577aa",
     }).setOrigin(0.5);
     this.dlgContainer.add(nextLabel);
 
-    const nextZone = this.add.zone(dx + portraitW + 256, dy + dh - 29, 120, 30)
+    const nextZone = this.add.zone(dx + 256, dy + dh - 29, 120, 30)
       .setInteractive({ useHandCursor: true });
     nextZone.on("pointerdown", () => this._nextLine());
     this.dlgContainer.add(nextZone);
@@ -863,7 +851,7 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.add(closeBg);
 
     const closeLabel = this.add.text(dx + dw - 58, dy + dh - 29, "DISMISS", {
-      fontFamily: "monospace", fontSize: "10px", color: "#444455",
+      fontFamily: "monospace", fontSize: "10px", color: "#666677",
     }).setOrigin(0.5);
     this.dlgContainer.add(closeLabel);
 
@@ -907,8 +895,6 @@ class MapScene extends Phaser.Scene {
 
     const lines = this.dialogueLines[nodeDef.key] ?? SCRIPTED_DIALOGUE[nodeDef.key];
     const idx = this.lineIndex[nodeDef.key] % lines.length;
-    this.dlgPortraitSprite.setTexture('char_' + nodeDef.key);
-
     typewriterText(this, lines[idx], this.dlgText, 22);
     this.dlgContainer.setVisible(true);
     this.dlgContainer.setDepth(10);
