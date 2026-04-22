@@ -238,6 +238,52 @@ const SFX = (() => {
         osc(f, "sine", t, 0.4, 0.25);
       });
     },
+    ambientLoop() {
+      const c = get();
+      let active = true;
+
+      const master = c.createGain();
+      master.gain.setValueAtTime(0.12, c.currentTime);
+
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(820, c.currentTime);
+      lp.connect(master);
+      master.connect(c.destination);
+
+      function note(freq, dur, vol) {
+        if (!active) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(freq, c.currentTime);
+        g.gain.setValueAtTime(vol, c.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+        o.connect(g); g.connect(lp);
+        o.start(); o.stop(c.currentTime + dur + 0.05);
+      }
+
+      // Bass pulse every 2s
+      note(55, 0.7, 0.5);
+      const bassTimer = setInterval(() => note(55, 0.7, 0.5), 2000);
+
+      // Sparse pentatonic melody — A minor: A2 C3 D3 E3 G3
+      const melody = [110, 130, 147, 165, 196];
+      function scheduleMelody() {
+        if (!active) return;
+        note(melody[Math.floor(Math.random() * melody.length)], 1.1, 0.18);
+        setTimeout(scheduleMelody, 1400 + Math.random() * 1800);
+      }
+      setTimeout(scheduleMelody, 600);
+
+      return {
+        stop() {
+          active = false;
+          clearInterval(bassTimer);
+          master.gain.setValueAtTime(0, c.currentTime);
+        },
+      };
+    },
   };
 })();
 
@@ -474,6 +520,13 @@ class MapScene extends Phaser.Scene {
   create() {
     this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.3);
+    // Start ambient on first enter, persist across re-entries
+    if (!this._ambient) {
+      this._ambient = SFX.ambientLoop();
+      this.events.once('shutdown', () => {
+        if (this._ambient) { this._ambient.stop(); this._ambient = null; }
+      });
+    }
     // Fetch live data for all nodes (non-blocking)
     NODE_DEFS.forEach(n => this._fetchNodeData(n));
 
