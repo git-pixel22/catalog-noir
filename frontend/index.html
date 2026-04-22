@@ -1227,6 +1227,10 @@ class VerdictScene extends Phaser.Scene {
   }
 
   _buildCorrect() {
+    // White flash on correct verdict
+    const flash = this.add.graphics().setDepth(30);
+    flash.fillStyle(0xffffff, 1).fillRect(0, 0, W, H);
+    this.tweens.add({ targets: flash, alpha: 0, duration: 700, delay: 80 });
     SFX.caseClosed();
     this.add.text(W / 2, 60, "CASE CLOSED", {
       fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
