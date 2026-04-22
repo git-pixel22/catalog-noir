@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>CATALOG NOIR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #050508; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
     canvas { image-rendering: auto; display: block; }
+    #scanline { position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px); pointer-events: none; z-index: 9999; }
   </style>
 </head>
 <body>
@@ -15,6 +19,8 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const BACKEND = "";
 const W = 900, H = 600;
+const FONT_TITLE = "'Press Start 2P'";
+const FONT_BODY  = "VT323";
 
 // Character asset config — drop a PNG in frontend/assets/ to override procedural fallback
 const CHARACTERS = {
@@ -423,11 +429,11 @@ class BriefingScene extends Phaser.Scene {
       .fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
 
     this.add.text(W / 2, 55, "CATALOG NOIR", {
-      fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
+      fontFamily: FONT_TITLE, fontSize: "18px", color: "#e8c97e", letterSpacing: 4,
     }).setOrigin(0.5).setDepth(6);
 
     this.add.text(W / 2, 98, "Case File 001  |  The Case of the Duplicate Customer", {
-      fontFamily: "monospace", fontSize: "13px", color: "#707090",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#707090",
     }).setOrigin(0.5).setDepth(6);
 
     // Case file card — tall enough for all content
@@ -442,7 +448,7 @@ class BriefingScene extends Phaser.Scene {
     card.fillStyle(0xaa44ff, 1).fillRect(W / 2, cardY, cardW / 2, 3);
 
     this.add.text(W / 2 - cardW / 2 + 20, cardY + 16, "INCIDENT REPORT  //  14:03 UTC", {
-      fontFamily: "monospace", fontSize: "11px", color: "#aaaacc",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#aaaacc",
     });
 
     const lines = [
@@ -463,7 +469,7 @@ class BriefingScene extends Phaser.Scene {
     ];
 
     const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 40, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#c0c0d8", lineSpacing: 5,
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#c0c0d8", lineSpacing: 5,
     });
 
     const fullText = lines.join("\n");
@@ -482,7 +488,7 @@ class BriefingScene extends Phaser.Scene {
     btnBg.fillRect(W / 2 - 120, btnY, 240, 44);
 
     this.add.text(W / 2, btnY + 22, "BEGIN INVESTIGATION", {
-      fontFamily: "monospace", fontSize: "13px", color: "#0a0a14",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#0a0a14",
     }).setOrigin(0.5);
 
     const btnZone = this.add.zone(W / 2, btnY + 22, 240, 44).setInteractive({ useHandCursor: true });
@@ -495,7 +501,7 @@ class BriefingScene extends Phaser.Scene {
     });
 
     this.add.text(W / 2, btnY + 56, "Interview suspects. Collect evidence. Name the culprit.", {
-      fontFamily: "monospace", fontSize: "12px", color: "#b0b0c8",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#b0b0c8",
     }).setOrigin(0.5);
   }
 }
@@ -532,11 +538,11 @@ class MapScene extends Phaser.Scene {
 
     // Header
     this.add.text(W / 2, 22, "CATALOG NOIR", {
-      fontFamily: "monospace", fontSize: "20px", color: "#e8c97e", letterSpacing: 4,
+      fontFamily: FONT_TITLE, fontSize: "11px", color: "#e8c97e", letterSpacing: 3,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, 46, "Investigation Map  |  Case 001", {
-      fontFamily: "monospace", fontSize: "11px", color: "#9090b8",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#9090b8",
     }).setOrigin(0.5);
 
     // Draw edges
@@ -554,7 +560,7 @@ class MapScene extends Phaser.Scene {
 
     // Status bar
     this.statusBar = this.add.text(W / 2, H - 14, "Click a node to interview. Collect evidence to build your case.", {
-      fontFamily: "monospace", fontSize: "11px", color: "#a0a0c0",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#a0a0c0",
     }).setOrigin(0.5);
 
     // Accusation button (hidden until 2+ evidence)
@@ -588,7 +594,7 @@ class MapScene extends Phaser.Scene {
     const my = (from.y + to.y) / 2;
 
     this.add.text(mx, my - 14, edgeDef.cols, {
-      fontFamily: "monospace", fontSize: "9px", color: "#5070a0",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#5070a0",
     }).setOrigin(0.5);
 
     // Cyan diamond — click for lineage detail
@@ -623,13 +629,13 @@ class MapScene extends Phaser.Scene {
     ctr.add(bg);
 
     ctr.add(this.add.text(px + 16, py + 14, edgeDef.title, {
-      fontFamily: "monospace", fontSize: "11px", color: "#44ccdd",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#44ccdd",
     }));
     ctr.add(this.add.text(px + 16, py + 36, edgeDef.detail, {
-      fontFamily: "monospace", fontSize: "11px", color: "#c0c0d8", lineSpacing: 4,
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c0c0d8", lineSpacing: 4,
     }));
     ctr.add(this.add.text(px + 16, py + 96, edgeDef.clue, {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
     }));
 
     // Close on click anywhere
@@ -660,15 +666,15 @@ class MapScene extends Phaser.Scene {
     g.fillRect(bx, by, bw, 18);
 
     this.add.text(x, by + 9, badge, {
-      fontFamily: "monospace", fontSize: "10px", color: "#080814",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#080814",
     }).setOrigin(0.5);
 
     const labelText = this.add.text(x, y + 4, label, {
-      fontFamily: "monospace", fontSize: "11px", color: "#e0e0f0",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e0e0f0",
     }).setOrigin(0.5);
 
     const subText = this.add.text(x, y + 20, "...", {
-      fontFamily: "monospace", fontSize: "9px", color: "#7878a0",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#7878a0",
     }).setOrigin(0.5);
 
     if (role === "victim") {
@@ -713,16 +719,16 @@ class MapScene extends Phaser.Scene {
     panelGfx.strokeRect(px, py, pw, ph);
 
     this.add.text(px + pw / 2, py + 14, "EVIDENCE", {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
     }).setOrigin(0.5);
 
     this.evidenceList = this.add.text(px + 10, py + 32, "No evidence collected.", {
-      fontFamily: "monospace", fontSize: "9px", color: "#8080a8",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#8080a8",
       wordWrap: { width: pw - 20 }, lineSpacing: 4,
     });
 
     this.evidenceCountText = this.add.text(px + pw / 2, py + ph - 14, "0 items", {
-      fontFamily: "monospace", fontSize: "9px", color: "#7070a0",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#7070a0",
     }).setOrigin(0.5);
   }
 
@@ -731,7 +737,7 @@ class MapScene extends Phaser.Scene {
     const ax = W / 2 - aw / 2, ay = H - 76;
     this.accuseBg = this.add.graphics().setDepth(5);
     this.accuseText = this.add.text(W / 2, ay + ah / 2, "MAKE ACCUSATION", {
-      fontFamily: "monospace", fontSize: "13px", color: "#ffffff",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#ffffff",
     }).setOrigin(0.5).setVisible(false).setDepth(5);
 
     this.accuseZone = this.add.zone(W / 2, ay + ah / 2, aw, ah).setDepth(5);
@@ -795,19 +801,19 @@ class MapScene extends Phaser.Scene {
 
     // Speaker name
     this.dlgName = this.add.text(dx + 16, dy + 14, "", {
-      fontFamily: "monospace", fontSize: "13px", color: "#ffdd88", fontStyle: "bold",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#ffdd88", fontStyle: "bold",
     });
     this.dlgContainer.add(this.dlgName);
 
     // Metadata line
     this.dlgMeta = this.add.text(dx + 16, dy + 32, "", {
-      fontFamily: "monospace", fontSize: "10px", color: "#aaaacc",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#aaaacc",
     });
     this.dlgContainer.add(this.dlgMeta);
 
     // Dialogue text
     this.dlgText = this.add.text(dx + 16, dy + 52, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#ccccff",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#ccccff",
       wordWrap: { width: dw - 32 }, lineSpacing: 4,
     });
     this.dlgContainer.add(this.dlgText);
@@ -819,7 +825,7 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.add(collectBg);
 
     this.dlgCollectText = this.add.text(dx + 98, dy + dh - 29, "COLLECT EVIDENCE", {
-      fontFamily: "monospace", fontSize: "10px", color: "#88aaff",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#88aaff",
     }).setOrigin(0.5);
     this.dlgContainer.add(this.dlgCollectText);
 
@@ -835,7 +841,7 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.add(nextBg);
 
     const nextLabel = this.add.text(dx + 256, dy + dh - 29, "NEXT  >>", {
-      fontFamily: "monospace", fontSize: "10px", color: "#5577aa",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#5577aa",
     }).setOrigin(0.5);
     this.dlgContainer.add(nextLabel);
 
@@ -851,7 +857,7 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.add(closeBg);
 
     const closeLabel = this.add.text(dx + dw - 58, dy + dh - 29, "DISMISS", {
-      fontFamily: "monospace", fontSize: "10px", color: "#666677",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#666677",
     }).setOrigin(0.5);
     this.dlgContainer.add(closeLabel);
 
@@ -876,7 +882,7 @@ class MapScene extends Phaser.Scene {
 
     // Small label below the node
     this.add.text(x, y + bh / 2 + 10, "✓  INTERVIEWED", {
-      fontFamily: "monospace", fontSize: "8px", color: "#40d060",
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#40d060",
     }).setOrigin(0.5).setDepth(3);
   }
 
@@ -1003,16 +1009,16 @@ class AccusationScene extends Phaser.Scene {
     drawGrid(this, 0.2);
 
     this.add.text(W / 2, 44, "ACCUSATION", {
-      fontFamily: "monospace", fontSize: "28px", color: "#e05050", letterSpacing: 6,
+      fontFamily: FONT_TITLE, fontSize: "14px", color: "#e05050", letterSpacing: 4,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, 80, "Who is responsible for the duplicate customer_id?", {
-      fontFamily: "monospace", fontSize: "13px", color: "#909090",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#909090",
     }).setOrigin(0.5);
 
     // Evidence recap
     this.add.text(W / 2, 116, "Evidence collected: " + this.evidence.map(e => e.evidenceTitle).join("  |  "), {
-      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
     }).setOrigin(0.5);
 
     // Only show nodes the player actually interviewed
@@ -1028,10 +1034,10 @@ class AccusationScene extends Phaser.Scene {
       bg.strokeRect(bx, by, bw, bh);
 
       this.add.text(bx + 16, by + 14, s.label, {
-        fontFamily: "monospace", fontSize: "13px", color: hexColor(s.color),
+        fontFamily: FONT_BODY, fontSize: "18px", color: hexColor(s.color),
       });
       this.add.text(bx + 16, by + 36, `Type: ${s.badge}  |  Click to accuse`, {
-        fontFamily: "monospace", fontSize: "10px", color: "#404060",
+        fontFamily: FONT_BODY, fontSize: "15px", color: "#404060",
       });
 
       // Mini portrait sprite
@@ -1058,7 +1064,7 @@ class AccusationScene extends Phaser.Scene {
 
     // Back button
     this.add.text(W / 2, H - 28, "< back to investigation", {
-      fontFamily: "monospace", fontSize: "11px", color: "#303050",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#303050",
     }).setOrigin(0.5).setInteractive({ useHandCursor: true })
       .on("pointerdown", () => {
         this.cameras.main.fadeOut(400, 0, 0, 0);
@@ -1088,71 +1094,34 @@ class ConfrontScene extends Phaser.Scene {
 
     // Header
     this.add.text(W / 2, 28, "— CONFRONTATION —", {
-      fontFamily: "monospace", fontSize: "18px", color: "#4466ff", letterSpacing: 4,
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#4466ff", letterSpacing: 4,
     }).setOrigin(0.5);
     this.add.text(W / 2, 52, "stg_customers is cornered. Present evidence to break the alibi.", {
-      fontFamily: "monospace", fontSize: "11px", color: "#7070a0",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#7070a0",
     }).setOrigin(0.5);
 
-    // Detective — real image if available, geometric fallback
-    const detX = 80, detY = 460;
-    if (this.textures.exists("detective")) {
-      const img = this.add.image(detX, detY, "detective");
-      const scale = Math.min(160 / img.width, 300 / img.height);
-      img.setScale(scale).setOrigin(0.5, 1).setTintFill(0x6677aa);
-    } else {
-      const det = this.add.graphics();
-      const dc = 0x252540, cx = detX, by = detY - 300;
-      det.fillStyle(dc, 1);
-      det.fillRect(cx - 18, by, 36, 42);
-      det.fillRect(cx - 46, by + 38, 92, 9);
-      det.fillCircle(cx, by + 68, 20);
-      det.fillRect(cx - 6, by + 86, 12, 10);
-      det.fillTriangle(cx, by + 90, cx - 52, by + 116, cx + 52, by + 116);
-      det.fillRect(cx - 38, by + 112, 76, 108);
-      det.fillRect(cx - 44, by + 212, 88, 10);
-      det.fillRect(cx - 28, by + 218, 18, 80);
-      det.fillRect(cx + 10, by + 218, 18, 80);
-    }
-    this.add.text(detX, detY + 10, "DETECTIVE", {
-      fontFamily: "monospace", fontSize: "9px", color: "#404060",
-    }).setOrigin(0.5);
-
-    // stg_customers standing sprite (large, right side)
-    const charX = 720, charY = 440;
-    if (this.textures.exists("char_stg_customers")) {
-      this.add.sprite(charX, charY, "char_stg_customers")
-        .setDisplaySize(80, 100).setOrigin(0.5, 1);
-    }
-    this.add.text(charX, charY + 12, "stg_customers", {
-      fontFamily: "monospace", fontSize: "9px", color: "#555566",
-    }).setOrigin(0.5);
-
-    // Ace Attorney dialogue box (center)
-    const bx = 148, by2 = 142, bw = 470, bh = 160;
+    // Ace Attorney dialogue box — wider, centred, no character distractions
+    const bx = 100, by2 = 130, bw = 700, bh = 180;
     const dlgBg = this.add.graphics();
     dlgBg.fillStyle(0x0a0a16, 1).fillRect(bx, by2, bw, bh);
     dlgBg.lineStyle(2, 0x4466ff, 1).strokeRect(bx, by2, bw, bh);
     // gradient top bar
     dlgBg.fillStyle(0x4466ff, 1).fillRect(bx, by2, bw / 2, 2);
     dlgBg.fillStyle(0xaa44ff, 1).fillRect(bx + bw / 2, by2, bw / 2, 2);
-    // bubble tail pointing right toward character
-    dlgBg.fillStyle(0x0a0a16, 1)
-      .fillTriangle(bx + bw, by2 + bh / 2 - 10, bx + bw + 24, by2 + bh / 2, bx + bw, by2 + bh / 2 + 10);
 
     this.add.text(bx + 16, by2 + 12, "▶  stg_customers", {
-      fontFamily: "monospace", fontSize: "11px", color: "#ffdd88", fontStyle: "bold",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#ffdd88", fontStyle: "bold",
     });
 
-    const stmtObj = this.add.text(bx + 16, by2 + 34, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#ccccff",
-      wordWrap: { width: bw - 32 }, lineSpacing: 5,
+    const stmtObj = this.add.text(bx + 16, by2 + 38, "", {
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#ccccff",
+      wordWrap: { width: bw - 32 }, lineSpacing: 6,
     });
     typewriterText(this, CONFRONT_STATEMENT, stmtObj, 18);
 
     // Evidence selection label
     this.add.text(W / 2, 322, "Present evidence to break the alibi:", {
-      fontFamily: "monospace", fontSize: "11px", color: "#7070a0",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#7070a0",
     }).setOrigin(0.5);
 
     // Evidence cards
@@ -1173,7 +1142,7 @@ class ConfrontScene extends Phaser.Scene {
     });
 
     this.feedbackText = this.add.text(W / 2, 458, "", {
-      fontFamily: "monospace", fontSize: "11px", color: "#c06060",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c06060",
     }).setOrigin(0.5);
   }
 
@@ -1188,10 +1157,10 @@ class ConfrontScene extends Phaser.Scene {
     gfx.fillRect(cx, cy, cW, 18);
     if (!g) {
       this.add.text(cx + cW / 2, cy + 9, ev.evidenceTitle, {
-        fontFamily: "monospace", fontSize: "8px", color: "#0a0a14",
+        fontFamily: FONT_BODY, fontSize: "13px", color: "#0a0a14",
       }).setOrigin(0.5);
       this.add.text(cx + cW / 2, cy + 44, (ev.evidenceText ?? "").split("\n")[0], {
-        fontFamily: "monospace", fontSize: "9px", color: "#9090b8",
+        fontFamily: FONT_BODY, fontSize: "14px", color: "#9090b8",
         wordWrap: { width: cW - 12 }, align: "center",
       }).setOrigin(0.5);
     }
@@ -1229,7 +1198,7 @@ class ConfrontScene extends Phaser.Scene {
     // 3. OBJECTION! punch in
     this.time.delayedCall(180, () => {
       const obj = this.add.text(W / 2, H / 2 - 80, "OBJECTION!", {
-        fontFamily: "monospace", fontSize: "72px", color: "#ff2020",
+        fontFamily: FONT_BODY, fontSize: "72px", color: "#ff2020",
         stroke: "#ffffff", strokeThickness: 4,
       }).setOrigin(0.5).setScale(2.8).setDepth(20);
       this.tweens.add({ targets: obj, scaleX: 1, scaleY: 1, duration: 400, ease: "Back.easeOut" });
@@ -1245,11 +1214,11 @@ class ConfrontScene extends Phaser.Scene {
       card.strokeRect(W / 2 - 280, H / 2 - 10, 560, 130);
 
       this.add.text(W / 2 - 260, H / 2 + 8, "EVIDENCE ACCEPTED:", {
-        fontFamily: "monospace", fontSize: "10px", color: "#e8c97e",
+        fontFamily: FONT_BODY, fontSize: "15px", color: "#e8c97e",
       }).setDepth(21);
 
       this.add.text(W / 2, H / 2 + 58, CONFRONT_REVEAL, {
-        fontFamily: "monospace", fontSize: "13px", color: "#e0e0f0",
+        fontFamily: FONT_BODY, fontSize: "18px", color: "#e0e0f0",
         align: "center", lineSpacing: 6,
       }).setOrigin(0.5).setDepth(21);
     });
@@ -1289,11 +1258,11 @@ class VerdictScene extends Phaser.Scene {
     this.tweens.add({ targets: flash, alpha: 0, duration: 700, delay: 80 });
     SFX.caseClosed();
     this.add.text(W / 2, 60, "CASE CLOSED", {
-      fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
+      fontFamily: FONT_TITLE, fontSize: "16px", color: "#e8c97e", letterSpacing: 4,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, 100, "Detective rank: SENIOR INVESTIGATOR", {
-      fontFamily: "monospace", fontSize: "14px", color: "#60d060",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#60d060",
     }).setOrigin(0.5);
 
     const lines = [
@@ -1318,11 +1287,11 @@ class VerdictScene extends Phaser.Scene {
     card.strokeRect(W / 2 - 300, 118, 600, 420);
 
     this.add.text(W / 2, 136, "THE TRUTH", {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
     }).setOrigin(0.5);
 
     const bodyText = this.add.text(W / 2 - 280, 158, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#c0c0d8", lineSpacing: 5,
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#c0c0d8", lineSpacing: 5,
     });
     const fullText = lines.join("\n");
     let i = 0;
@@ -1340,19 +1309,19 @@ class VerdictScene extends Phaser.Scene {
     const cy = H / 2;
 
     this.add.text(W / 2, cy - 150, "WRONG ACCUSATION", {
-      fontFamily: "monospace", fontSize: "28px", color: "#e05050", letterSpacing: 4,
+      fontFamily: FONT_TITLE, fontSize: "13px", color: "#e05050", letterSpacing: 3,
     }).setOrigin(0.5);
 
     this.add.text(W / 2, cy - 100, `You accused: ${chosen?.label ?? this.chosen}`, {
-      fontFamily: "monospace", fontSize: "14px", color: "#a0a0b8",
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#a0a0b8",
     }).setOrigin(0.5);
 
     this.add.text(W / 2, cy - 30, "The real culprit is still out there.", {
-      fontFamily: "monospace", fontSize: "16px", color: "#c04040",
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c04040",
     }).setOrigin(0.5);
 
     this.add.text(W / 2, cy + 10, "Go back. Interview more suspects. Follow the evidence.", {
-      fontFamily: "monospace", fontSize: "13px", color: "#8080a0",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#8080a0",
     }).setOrigin(0.5);
 
     const rb = this.add.graphics();
@@ -1362,7 +1331,7 @@ class VerdictScene extends Phaser.Scene {
     rb.strokeRect(W / 2 - 120, cy + 60, 240, 44);
 
     this.add.text(W / 2, cy + 82, "REINVESTIGATE", {
-      fontFamily: "monospace", fontSize: "12px", color: "#d08080",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#d08080",
     }).setOrigin(0.5);
     this.add.zone(W / 2, cy + 82, 240, 44).setInteractive({ useHandCursor: true })
       .on("pointerdown", () => {
@@ -1378,7 +1347,7 @@ class VerdictScene extends Phaser.Scene {
     replayBg.lineStyle(1, 0x505070, 1);
     replayBg.strokeRect(W / 2 - 110, H - 56, 220, 38);
     this.add.text(W / 2, H - 37, "REPLAY CASE", {
-      fontFamily: "monospace", fontSize: "12px", color: "#8080a0",
+      fontFamily: FONT_BODY, fontSize: "18px", color: "#8080a0",
     }).setOrigin(0.5);
     this.add.zone(W / 2, H - 37, 220, 38).setInteractive({ useHandCursor: true })
       .on("pointerdown", () => {
@@ -1387,24 +1356,28 @@ class VerdictScene extends Phaser.Scene {
       });
 
     this.add.text(W / 2, H - 10, "Catalog Noir — every clue is real OpenMetadata data", {
-      fontFamily: "monospace", fontSize: "10px", color: "#505070",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
     }).setOrigin(0.5);
   }
 }
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
-new Phaser.Game({
-  type: Phaser.AUTO,
-  width: W,
-  height: H,
-  backgroundColor: "#050508",
-  pixelArt: true,
-  scene: [BriefingScene, MapScene, AccusationScene, ConfrontScene, VerdictScene],
-  parent: document.body,
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
+document.body.insertAdjacentHTML('beforeend', '<div id="scanline"></div>');
+
+document.fonts.ready.then(() => {
+  new Phaser.Game({
+    type: Phaser.AUTO,
+    width: W,
+    height: H,
+    backgroundColor: "#050508",
+    pixelArt: true,
+    scene: [BriefingScene, MapScene, AccusationScene, ConfrontScene, VerdictScene],
+    parent: document.body,
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+  });
 });
 </script>
 </body>
