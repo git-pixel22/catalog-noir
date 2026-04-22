@@ -415,95 +415,118 @@ class BriefingScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(400, 0, 0, 0);
-    drawGrid(this, 0.25);
+    drawGrid(this, 0.18);
 
-    // Vignette effect
-    const vg = this.add.graphics();
-    vg.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.8, 0.8, 0, 0);
-    vg.fillRect(0, 0, W, H / 3);
+    // Letterbox bars
+    this.add.graphics().setDepth(5).fillStyle(0x000000, 1).fillRect(0, 0, W, 36);
+    this.add.graphics().setDepth(5).fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
 
-    // Cinematic letterbox bars
-    this.add.graphics().setDepth(5)
-      .fillStyle(0x000000, 1).fillRect(0, 0, W, 36);
-    this.add.graphics().setDepth(5)
-      .fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
-
-    this.add.text(W / 2, 52, "CATALOG NOIR", {
-      fontFamily: FONT_TITLE, fontSize: "16px", color: "#e8c97e", letterSpacing: 4,
+    // ── HEADER ──────────────────────────────────────────────────
+    this.add.text(W / 2, 54, "CATALOG NOIR", {
+      fontFamily: FONT_TITLE, fontSize: "14px", color: "#e8c97e", letterSpacing: 4,
     }).setOrigin(0.5).setDepth(6);
 
-    this.add.text(W / 2, 80, "Case File 001  |  The Case of the Duplicate Customer", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#707090",
+    this.add.text(W / 2, 76, "Case I  ·  The Case of the Duplicate Customer", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#505070",
     }).setOrigin(0.5).setDepth(6);
 
-    // Case file card — tall enough for all content
-    const cardY = 96, cardH = 360, cardW = 660;
+    // ── CARD ────────────────────────────────────────────────────
+    // Card fills from y=88 to y=540, button lives inside at bottom
+    const cx = 40, cy = 88, cw = W - 80, ch = 452;
     const card = this.add.graphics();
-    card.fillStyle(0x0c0c18, 1);
-    card.fillRect(W / 2 - cardW / 2, cardY, cardW, cardH);
-    card.lineStyle(2, 0x4466ff, 0.8);
-    card.strokeRect(W / 2 - cardW / 2, cardY, cardW, cardH);
-    // gradient top bar
-    card.fillStyle(0x4466ff, 1).fillRect(W / 2 - cardW / 2, cardY, cardW / 2, 3);
-    card.fillStyle(0xaa44ff, 1).fillRect(W / 2, cardY, cardW / 2, 3);
+    card.fillStyle(0x07070f, 1).fillRect(cx, cy, cw, ch);
+    card.lineStyle(1, 0x4466ff, 0.5).strokeRect(cx, cy, cw, ch);
+    card.fillStyle(0x4466ff, 1).fillRect(cx, cy, cw / 2, 2);
+    card.fillStyle(0xaa44ff, 1).fillRect(cx + cw / 2, cy, cw / 2, 2);
 
-    this.add.text(W / 2 - cardW / 2 + 20, cardY + 16, "INCIDENT REPORT  //  14:03 UTC", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#aaaacc",
+    const div = (y) => {
+      const g = this.add.graphics();
+      g.lineStyle(1, 0x1a1a28, 1).lineBetween(cx + 12, y, cx + cw - 12, y);
+    };
+
+    // ── CARD HEADER ROW ─────────────────────────────────────────
+    this.add.text(cx + 16, cy + 12, "INCIDENT REPORT  //  14:03 UTC", {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#666688",
     });
-
-    const lines = [
-      "Asset:   acme_nexus_analytics.ANALYTICS.MARTS.dim_customers",
-      "Type:    Snowflake table  |  Tier 1  |  Sales domain",
-      "Owner:   Nick Acosta",
-      "Columns: 12",
-      "",
-      "Test:    Customer Key Uniqueness",
-      "Status:  ABORTED",
-      "Error:   Duplicate customer_id values detected in production.",
-      "",
-      "Upstream lineage: stg_customers  <-  customers (MySQL/CRM)",
-      "",
-      "This is a Tier 1 asset. Every duplicate propagates",
-      "to customer_metrics, revenue dashboards, and ML models.",
-      "Find out who's responsible. Find out what they did.",
-    ];
-
-    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 36, "", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#c0c0d8", lineSpacing: 0,
-      wordWrap: { width: cardW - 40 },
-    });
-
-    const fullText = lines.join("\n");
-    let i = 0;
-    this.time.addEvent({
-      delay: 14,
-      repeat: fullText.length - 1,
-      callback: () => { bodyText.setText(fullText.slice(0, ++i)); },
-    });
-
-    const btnY = cardY + cardH + 18;
-
-    // Begin button
-    const btnBg = this.add.graphics();
-    btnBg.fillStyle(0xe8c97e, 1);
-    btnBg.fillRect(W / 2 - 120, btnY, 240, 44);
-
-    this.add.text(W / 2, btnY + 22, "BEGIN INVESTIGATION", {
-      fontFamily: FONT_BODY, fontSize: "18px", color: "#0a0a14",
+    // ABORTED badge
+    const badgeG = this.add.graphics();
+    badgeG.fillStyle(0x2a0808, 1).fillRect(cx + cw - 118, cy + 9, 106, 22);
+    badgeG.lineStyle(1, 0xaa2222, 1).strokeRect(cx + cw - 118, cy + 9, 106, 22);
+    this.add.text(cx + cw - 65, cy + 20, "● ABORTED", {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#cc3333",
     }).setOrigin(0.5);
+    div(cy + 36);
 
-    const btnZone = this.add.zone(W / 2, btnY + 22, 240, 44).setInteractive({ useHandCursor: true });
-    btnZone.on("pointerover", () => btnBg.clear().fillStyle(0xffd88a, 1).fillRect(W / 2 - 120, btnY, 240, 44));
-    btnZone.on("pointerout",  () => btnBg.clear().fillStyle(0xe8c97e, 1).fillRect(W / 2 - 120, btnY, 240, 44));
+    // ── TWO-COLUMN METADATA ──────────────────────────────────────
+    const L = cx + 16;        // left col x
+    const R = cx + cw / 2 + 8; // right col x
+    const colW = cw / 2 - 28;
+    let y = cy + 44;
+    const field = (x, label, value, color = "#c8c8e0") => {
+      this.add.text(x, y, label, { fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a" });
+      this.add.text(x, y + 16, value, {
+        fontFamily: FONT_BODY, fontSize: "16px", color,
+        wordWrap: { width: colW },
+      });
+    };
+
+    // Left column
+    field(L, "ASSET", "acme_nexus.ANALYTICS.MARTS.dim_customers");       y += 42;
+    field(L, "TYPE",  "Snowflake  ·  Tier 1  ·  Sales domain");          y += 42;
+    field(L, "OWNER", "Nick Acosta");                                      y += 42;
+    field(L, "COLS",  "12");
+
+    // Right column
+    y = cy + 44;
+    field(R, "TEST",   "Customer Key Uniqueness");                         y += 42;
+    field(R, "STATUS", "ABORTED", "#cc4444");                              y += 42;
+    field(R, "ERROR",  "Duplicate customer_id values\ndetected in production.", "#cc8888");
+
+    // Column separator
+    const colSepG = this.add.graphics();
+    colSepG.lineStyle(1, 0x1a1a28, 1).lineBetween(cx + cw / 2, cy + 40, cx + cw / 2, cy + 174);
+
+    // ── LINEAGE ──────────────────────────────────────────────────
+    div(cy + 176);
+    this.add.text(L, cy + 184, "UPSTREAM LINEAGE", { fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a" });
+    this.add.text(L, cy + 200, "customers (MySQL/CRM)  ──►  stg_customers (Snowflake)  ──►  dim_customers (Tier 1)", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c8c8e0",
+      wordWrap: { width: cw - 32 },
+    });
+
+    // ── INCIDENT BRIEF ───────────────────────────────────────────
+    div(cy + 242);
+    this.add.text(L, cy + 250, "BRIEF", { fontFamily: FONT_BODY, fontSize: "13px", color: "#44668a" });
+    const brief = "Tier 1 production asset. Customer Key Uniqueness test aborted 14:03 UTC.\nEvery duplicate customer_id propagates downstream to dashboards and ML models.\nSomething in this lineage chain is responsible. Find it.";
+    const briefObj = this.add.text(L, cy + 266, "", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#9090b8", lineSpacing: 2,
+      wordWrap: { width: cw - 32 },
+    });
+    let bi = 0;
+    this.time.addEvent({ delay: 12, repeat: brief.length - 1, callback: () => briefObj.setText(brief.slice(0, ++bi)) });
+
+    // ── ACTION BAR (bottom of card) ──────────────────────────────
+    const actionY = cy + ch - 52;
+    div(actionY);
+    const btnBg = this.add.graphics();
+    const drawBtn = (bright) => {
+      btnBg.clear();
+      btnBg.fillStyle(bright ? 0xffd88a : 0xe8c97e, 1)
+        .fillRect(cx + 16, actionY + 8, cw - 32, 36);
+    };
+    drawBtn(false);
+    this.add.text(W / 2, actionY + 26, "BEGIN INVESTIGATION", {
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#0a0a14",
+    }).setOrigin(0.5);
+    const btnZone = this.add.zone(W / 2, actionY + 26, cw - 32, 36)
+      .setInteractive({ useHandCursor: true });
+    btnZone.on("pointerover", () => drawBtn(true));
+    btnZone.on("pointerout",  () => drawBtn(false));
     btnZone.on("pointerdown", () => {
       SFX.whoosh();
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
     });
-
-    this.add.text(W / 2, btnY + 48, "Interview suspects. Collect evidence. Name the culprit.", {
-      fontFamily: FONT_BODY, fontSize: "18px", color: "#b0b0c8",
-    }).setOrigin(0.5);
   }
 }
 
