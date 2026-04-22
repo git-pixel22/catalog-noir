@@ -362,6 +362,7 @@ class BriefingScene extends Phaser.Scene {
   constructor() { super("BriefingScene"); }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.25);
 
     // Vignette effect
@@ -441,7 +442,11 @@ class BriefingScene extends Phaser.Scene {
     const btnZone = this.add.zone(W / 2, btnY + 22, 240, 44).setInteractive({ useHandCursor: true });
     btnZone.on("pointerover", () => btnBg.clear().fillStyle(0xffd88a, 1).fillRect(W / 2 - 120, btnY, 240, 44));
     btnZone.on("pointerout",  () => btnBg.clear().fillStyle(0xe8c97e, 1).fillRect(W / 2 - 120, btnY, 240, 44));
-    btnZone.on("pointerdown", () => { SFX.whoosh(); this.scene.start("MapScene"); });
+    btnZone.on("pointerdown", () => {
+      SFX.whoosh();
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
+    });
 
     this.add.text(W / 2, btnY + 56, "Interview suspects. Collect evidence. Name the culprit.", {
       fontFamily: "monospace", fontSize: "12px", color: "#b0b0c8",
@@ -467,6 +472,7 @@ class MapScene extends Phaser.Scene {
   }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.3);
     // Fetch live data for all nodes (non-blocking)
     NODE_DEFS.forEach(n => this._fetchNodeData(n));
@@ -677,7 +683,9 @@ class MapScene extends Phaser.Scene {
 
     this.accuseZone = this.add.zone(W / 2, ay + ah / 2, aw, ah).setDepth(5);
     this.accuseZone.on("pointerdown", () => {
-      this.scene.start("AccusationScene", { evidence: this.evidence });
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start("AccusationScene", { evidence: this.evidence }));
     });
     this._accuseFlash = false;
   }
@@ -952,6 +960,7 @@ class AccusationScene extends Phaser.Scene {
   init(data) { this.evidence = data.evidence ?? []; }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.2);
 
     this.add.text(W / 2, 44, "ACCUSATION", {
@@ -997,11 +1006,14 @@ class AccusationScene extends Phaser.Scene {
       zone.on("pointerover", () => { bg.clear(); bg.fillStyle(0x181828, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 1); bg.strokeRect(bx, by, bw, bh); });
       zone.on("pointerout",  () => { bg.clear(); bg.fillStyle(0x10101c, 1); bg.fillRect(bx, by, bw, bh); bg.lineStyle(2, s.color, 0.8); bg.strokeRect(bx, by, bw, bh); });
       zone.on("pointerdown", () => {
-        if (s.key === GUILTY_KEY) {
-          this.scene.start("ConfrontScene", { evidence: this.evidence });
-        } else {
-          this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
-        }
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          if (s.key === GUILTY_KEY) {
+            this.scene.start("ConfrontScene", { evidence: this.evidence });
+          } else {
+            this.scene.start("VerdictScene", { chosen: s.key, evidence: this.evidence });
+          }
+        });
       });
     });
 
@@ -1009,7 +1021,10 @@ class AccusationScene extends Phaser.Scene {
     this.add.text(W / 2, H - 28, "< back to investigation", {
       fontFamily: "monospace", fontSize: "11px", color: "#303050",
     }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.start("MapScene"));
+      .on("pointerdown", () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
+      });
   }
 }
 
@@ -1024,6 +1039,7 @@ class ConfrontScene extends Phaser.Scene {
   }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.12);
 
     // Subtle radial purple glow behind character
@@ -1217,6 +1233,7 @@ class VerdictScene extends Phaser.Scene {
   }
 
   create() {
+    this.cameras.main.fadeIn(400, 0, 0, 0);
     drawGrid(this, 0.15);
 
     if (this.correct) {
@@ -1309,7 +1326,10 @@ class VerdictScene extends Phaser.Scene {
       fontFamily: "monospace", fontSize: "12px", color: "#d08080",
     }).setOrigin(0.5);
     this.add.zone(W / 2, cy + 82, 240, 44).setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.start("MapScene"));
+      .on("pointerdown", () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
+      });
   }
 
   _addFooter() {
@@ -1322,7 +1342,10 @@ class VerdictScene extends Phaser.Scene {
       fontFamily: "monospace", fontSize: "12px", color: "#8080a0",
     }).setOrigin(0.5);
     this.add.zone(W / 2, H - 37, 220, 38).setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.start("BriefingScene"));
+      .on("pointerdown", () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("BriefingScene"));
+      });
 
     this.add.text(W / 2, H - 10, "Catalog Noir — every clue is real OpenMetadata data", {
       fontFamily: "monospace", fontSize: "10px", color: "#505070",
