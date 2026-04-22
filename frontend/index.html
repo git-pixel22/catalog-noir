@@ -377,11 +377,11 @@ class BriefingScene extends Phaser.Scene {
 
     this.add.text(W / 2, 55, "CATALOG NOIR", {
       fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(6);
 
     this.add.text(W / 2, 98, "Case File 001  |  The Case of the Duplicate Customer", {
       fontFamily: "monospace", fontSize: "13px", color: "#707090",
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(6);
 
     // Case file card — tall enough for all content
     const cardY = 118, cardH = 356, cardW = 620;
