@@ -437,7 +437,7 @@ class BriefingScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(6);
 
     // Case file card — tall enough for all content
-    const cardY = 100, cardH = 390, cardW = 660;
+    const cardY = 96, cardH = 360, cardW = 660;
     const card = this.add.graphics();
     card.fillStyle(0x0c0c18, 1);
     card.fillRect(W / 2 - cardW / 2, cardY, cardW, cardH);
@@ -468,8 +468,8 @@ class BriefingScene extends Phaser.Scene {
       "Find out who's responsible. Find out what they did.",
     ];
 
-    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 42, "", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#c0c0d8", lineSpacing: 3,
+    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 36, "", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c0c0d8", lineSpacing: 0,
       wordWrap: { width: cardW - 40 },
     });
 
@@ -501,7 +501,7 @@ class BriefingScene extends Phaser.Scene {
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start("MapScene"));
     });
 
-    this.add.text(W / 2, btnY + 56, "Interview suspects. Collect evidence. Name the culprit.", {
+    this.add.text(W / 2, btnY + 48, "Interview suspects. Collect evidence. Name the culprit.", {
       fontFamily: FONT_BODY, fontSize: "18px", color: "#b0b0c8",
     }).setOrigin(0.5);
   }
