@@ -1216,7 +1216,7 @@ class ConfrontScene extends Phaser.Scene {
 
     // 3. OBJECTION! punch in
     this.time.delayedCall(180, () => {
-      const obj = this.add.text(W / 2, H / 2 - 80, "OBJECTION!", {
+      const obj = this.add.text(W / 2, H / 2 - 80, "CAUGHT!", {
         fontFamily: FONT_BODY, fontSize: "72px", color: "#ff2020",
         stroke: "#ffffff", strokeThickness: 4,
       }).setOrigin(0.5).setScale(2.8).setDepth(20);
@@ -1243,7 +1243,7 @@ class ConfrontScene extends Phaser.Scene {
     });
 
     // 5. Transition to verdict
-    this.time.delayedCall(3600, () => {
+    this.time.delayedCall(5200, () => {
       this.scene.start("VerdictScene", { chosen: GUILTY_KEY, evidence: this.evidence });
     });
   }
