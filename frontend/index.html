@@ -369,6 +369,12 @@ class BriefingScene extends Phaser.Scene {
     vg.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.8, 0.8, 0, 0);
     vg.fillRect(0, 0, W, H / 3);
 
+    // Cinematic letterbox bars
+    this.add.graphics().setDepth(5)
+      .fillStyle(0x000000, 1).fillRect(0, 0, W, 36);
+    this.add.graphics().setDepth(5)
+      .fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
+
     this.add.text(W / 2, 55, "CATALOG NOIR", {
       fontFamily: "monospace", fontSize: "36px", color: "#e8c97e", letterSpacing: 8,
     }).setOrigin(0.5);
@@ -380,15 +386,16 @@ class BriefingScene extends Phaser.Scene {
     // Case file card — tall enough for all content
     const cardY = 118, cardH = 356, cardW = 620;
     const card = this.add.graphics();
-    card.lineStyle(1, 0x404060, 1);
     card.fillStyle(0x0c0c18, 1);
     card.fillRect(W / 2 - cardW / 2, cardY, cardW, cardH);
+    card.lineStyle(2, 0x4466ff, 0.8);
     card.strokeRect(W / 2 - cardW / 2, cardY, cardW, cardH);
-    card.lineStyle(1, 0xe8c97e, 0.5);
-    card.strokeRect(W / 2 - cardW / 2 + 4, cardY + 4, cardW - 8, cardH - 8);
+    // gradient top bar
+    card.fillStyle(0x4466ff, 1).fillRect(W / 2 - cardW / 2, cardY, cardW / 2, 3);
+    card.fillStyle(0xaa44ff, 1).fillRect(W / 2, cardY, cardW / 2, 3);
 
     this.add.text(W / 2 - cardW / 2 + 20, cardY + 16, "INCIDENT REPORT  //  14:03 UTC", {
-      fontFamily: "monospace", fontSize: "11px", color: "#e8c97e",
+      fontFamily: "monospace", fontSize: "11px", color: "#aaaacc",
     });
 
     const lines = [
