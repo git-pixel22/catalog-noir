@@ -1011,27 +1011,30 @@ class ConfrontScene extends Phaser.Scene {
   }
 
   create() {
-    drawGrid(this, 0.15);
+    drawGrid(this, 0.12);
+
+    // Subtle radial purple glow behind character
+    const glowBg = this.add.graphics();
+    glowBg.fillStyle(0x0d0820, 1).fillRect(0, 0, W / 2, H);
+    glowBg.fillStyle(0x050508, 1).fillRect(W / 2, 0, W / 2, H);
 
     // Header
-    this.add.text(W / 2, 28, "CONFRONTATION", {
-      fontFamily: "monospace", fontSize: "22px", color: "#e05050", letterSpacing: 6,
+    this.add.text(W / 2, 28, "— CONFRONTATION —", {
+      fontFamily: "monospace", fontSize: "18px", color: "#4466ff", letterSpacing: 4,
     }).setOrigin(0.5);
-    this.add.text(W / 2, 54, "stg_customers is cornered. Present evidence to break the alibi.", {
-      fontFamily: "monospace", fontSize: "11px", color: "#9090b0",
+    this.add.text(W / 2, 52, "stg_customers is cornered. Present evidence to break the alibi.", {
+      fontFamily: "monospace", fontSize: "11px", color: "#7070a0",
     }).setOrigin(0.5);
 
-    // Detective — real image if available, geometric fallback otherwise
+    // Detective — real image if available, geometric fallback
     const detX = 80, detY = 460;
     if (this.textures.exists("detective")) {
       const img = this.add.image(detX, detY, "detective");
       const scale = Math.min(160 / img.width, 300 / img.height);
       img.setScale(scale).setOrigin(0.5, 1).setTintFill(0x6677aa);
     } else {
-      // Fallback: clean silhouette
       const det = this.add.graphics();
-      const dc = 0x252540;
-      const cx = detX, by = detY - 300;
+      const dc = 0x252540, cx = detX, by = detY - 300;
       det.fillStyle(dc, 1);
       det.fillRect(cx - 18, by, 36, 42);
       det.fillRect(cx - 46, by + 38, 92, 9);
@@ -1040,59 +1043,51 @@ class ConfrontScene extends Phaser.Scene {
       det.fillTriangle(cx, by + 90, cx - 52, by + 116, cx + 52, by + 116);
       det.fillRect(cx - 38, by + 112, 76, 108);
       det.fillRect(cx - 44, by + 212, 88, 10);
+      det.fillRect(cx - 28, by + 218, 18, 80);
+      det.fillRect(cx + 10, by + 218, 18, 80);
     }
     this.add.text(detX, detY + 10, "DETECTIVE", {
       fontFamily: "monospace", fontSize: "9px", color: "#404060",
     }).setOrigin(0.5);
 
-    // Suspect box (right)
-    const sus = this.add.graphics();
-    sus.fillStyle(0xe0c040, 0.12);
-    sus.fillRect(640, 148, 140, 180);
-    sus.fillStyle(0x0e0e1a, 1);
-    sus.fillRect(644, 152, 132, 172);
-    sus.lineStyle(2, 0xe0c040, 1);
-    sus.strokeRect(644, 152, 132, 172);
-    sus.fillStyle(0xe0c040, 0.9);
-    sus.fillRect(644, 152, 132, 20);
-    this.add.text(710, 162, "SUSPECT", {
-      fontFamily: "monospace", fontSize: "10px", color: "#0a0a14",
-    }).setOrigin(0.5);
-    this.add.text(710, 206, "S", {
-      fontFamily: "monospace", fontSize: "44px", color: "#e0c040",
-    }).setOrigin(0.5);
-    this.add.text(710, 252, "stg_customers", {
-      fontFamily: "monospace", fontSize: "11px", color: "#d0d0e0",
-    }).setOrigin(0.5);
-    this.add.text(710, 270, "Snowflake  |  owner: test", {
-      fontFamily: "monospace", fontSize: "9px", color: "#606070",
+    // stg_customers standing sprite (large, right side)
+    const charX = 720, charY = 440;
+    if (this.textures.exists("char_stg_customers")) {
+      this.add.sprite(charX, charY, "char_stg_customers")
+        .setDisplaySize(80, 100).setOrigin(0.5, 1);
+    }
+    this.add.text(charX, charY + 12, "stg_customers", {
+      fontFamily: "monospace", fontSize: "9px", color: "#555566",
     }).setOrigin(0.5);
 
-    // Speech bubble from suspect
-    const bub = this.add.graphics();
-    bub.fillStyle(0x0c0c1c, 1);
-    bub.fillRect(148, 142, 470, 166);
-    bub.lineStyle(1, 0xe0c040, 0.6);
-    bub.strokeRect(148, 142, 470, 166);
-    // bubble tail pointing right
-    bub.fillStyle(0x0c0c1c, 1);
-    bub.fillTriangle(618, 226, 638, 215, 638, 237);
-    bub.lineStyle(1, 0xe0c040, 0.6);
-    bub.lineBetween(618, 226, 638, 215);
-    bub.lineBetween(618, 226, 638, 237);
+    // Ace Attorney dialogue box (center)
+    const bx = 148, by2 = 142, bw = 470, bh = 160;
+    const dlgBg = this.add.graphics();
+    dlgBg.fillStyle(0x0a0a16, 1).fillRect(bx, by2, bw, bh);
+    dlgBg.lineStyle(2, 0x4466ff, 1).strokeRect(bx, by2, bw, bh);
+    // gradient top bar
+    dlgBg.fillStyle(0x4466ff, 1).fillRect(bx, by2, bw / 2, 2);
+    dlgBg.fillStyle(0xaa44ff, 1).fillRect(bx + bw / 2, by2, bw / 2, 2);
+    // bubble tail pointing right toward character
+    dlgBg.fillStyle(0x0a0a16, 1)
+      .fillTriangle(bx + bw, by2 + bh / 2 - 10, bx + bw + 24, by2 + bh / 2, bx + bw, by2 + bh / 2 + 10);
 
-    const stmtObj = this.add.text(162, 155, "", {
-      fontFamily: "monospace", fontSize: "12px", color: "#d0d0e8",
-      wordWrap: { width: 446 }, lineSpacing: 5,
+    this.add.text(bx + 16, by2 + 12, "▶  stg_customers", {
+      fontFamily: "monospace", fontSize: "11px", color: "#ffdd88", fontStyle: "bold",
+    });
+
+    const stmtObj = this.add.text(bx + 16, by2 + 34, "", {
+      fontFamily: "monospace", fontSize: "12px", color: "#ccccff",
+      wordWrap: { width: bw - 32 }, lineSpacing: 5,
     });
     typewriterText(this, CONFRONT_STATEMENT, stmtObj, 18);
 
-    // Instruction
-    this.add.text(W / 2, 328, "Select an evidence card to present:", {
-      fontFamily: "monospace", fontSize: "11px", color: "#8080a8",
+    // Evidence selection label
+    this.add.text(W / 2, 322, "Present evidence to break the alibi:", {
+      fontFamily: "monospace", fontSize: "11px", color: "#7070a0",
     }).setOrigin(0.5);
 
-    // Evidence cards (only non-victim ones)
+    // Evidence cards
     const cards = this.evidence.filter(e => nodeByKey[e.key]?.role !== "victim");
     const cW = 170, cH = 90, gap = 18;
     const totalW = cards.length * cW + (cards.length - 1) * gap;
@@ -1100,9 +1095,8 @@ class ConfrontScene extends Phaser.Scene {
 
     cards.forEach((ev, i) => {
       const nd = nodeByKey[ev.key];
-      const cx = startX + i * (cW + gap), cy = 354;
+      const cx = startX + i * (cW + gap), cy = 348;
       const cg = this._drawCard(cx, cy, cW, cH, nd, ev, false);
-
       const zone = this.add.zone(cx + cW / 2, cy + cH / 2, cW, cH)
         .setInteractive({ useHandCursor: true });
       zone.on("pointerover", () => { cg.clear(); this._drawCard(cx, cy, cW, cH, nd, ev, true, cg); });
@@ -1110,7 +1104,7 @@ class ConfrontScene extends Phaser.Scene {
       zone.on("pointerdown", () => this._present(ev.key));
     });
 
-    this.feedbackText = this.add.text(W / 2, 462, "", {
+    this.feedbackText = this.add.text(W / 2, 458, "", {
       fontFamily: "monospace", fontSize: "11px", color: "#c06060",
     }).setOrigin(0.5);
   }
