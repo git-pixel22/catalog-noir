@@ -428,16 +428,16 @@ class BriefingScene extends Phaser.Scene {
     this.add.graphics().setDepth(5)
       .fillStyle(0x000000, 1).fillRect(0, H - 36, W, 36);
 
-    this.add.text(W / 2, 55, "CATALOG NOIR", {
-      fontFamily: FONT_TITLE, fontSize: "18px", color: "#e8c97e", letterSpacing: 4,
+    this.add.text(W / 2, 52, "CATALOG NOIR", {
+      fontFamily: FONT_TITLE, fontSize: "16px", color: "#e8c97e", letterSpacing: 4,
     }).setOrigin(0.5).setDepth(6);
 
-    this.add.text(W / 2, 98, "Case File 001  |  The Case of the Duplicate Customer", {
-      fontFamily: FONT_BODY, fontSize: "18px", color: "#707090",
+    this.add.text(W / 2, 80, "Case File 001  |  The Case of the Duplicate Customer", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#707090",
     }).setOrigin(0.5).setDepth(6);
 
     // Case file card — tall enough for all content
-    const cardY = 118, cardH = 356, cardW = 620;
+    const cardY = 100, cardH = 390, cardW = 660;
     const card = this.add.graphics();
     card.fillStyle(0x0c0c18, 1);
     card.fillRect(W / 2 - cardW / 2, cardY, cardW, cardH);
@@ -468,8 +468,9 @@ class BriefingScene extends Phaser.Scene {
       "Find out who's responsible. Find out what they did.",
     ];
 
-    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 40, "", {
-      fontFamily: FONT_BODY, fontSize: "18px", color: "#c0c0d8", lineSpacing: 5,
+    const bodyText = this.add.text(W / 2 - cardW / 2 + 20, cardY + 42, "", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#c0c0d8", lineSpacing: 3,
+      wordWrap: { width: cardW - 40 },
     });
 
     const fullText = lines.join("\n");
