@@ -731,7 +731,7 @@ class MapScene extends Phaser.Scene {
       const zone = this.add.zone(x, y, bw, bh).setInteractive({ useHandCursor: true });
       zone.on("pointerover", () => { g.clear(); this._redrawNodeHover(g, nodeDef, true); });
       zone.on("pointerout",  () => { g.clear(); this._redrawNodeHover(g, nodeDef, false); });
-      zone.on("pointerdown", () => this._openDialogue(nodeDef));
+      zone.on("pointerdown", () => this._showRichInfo(nodeDef));
     }
 
     return { g, labelText, subText };
