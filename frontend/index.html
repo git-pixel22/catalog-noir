@@ -33,49 +33,69 @@ const CHARACTERS = {
 // Real FQNs from the sandbox
 const NODE_DEFS = [
   {
-    key: "dim_customers",
-    fqn: "acme_nexus_analytics.ANALYTICS.MARTS.dim_customers",
-    label: "dim_customers",
-    role: "victim",
-    x: 450, y: 330,
-    color: 0xe05050,
-    badge: "VICTIM",
-    evidenceTitle: "VICTIM FILE",
-    evidenceText: "dim_customers — Tier 1 Snowflake table.\nCustomer Key Uniqueness test aborted 14:03.\nOwner: Nick Acosta. Sales domain.",
+    key: "customers",
+    fqn: "acme_nexus_raw_data.acme_raw.crm.customers",
+    label: "customers (raw)",
+    role: "source",
+    x: 100, y: 380,
+    color: 0x00ffcc,
+    badge: "SOURCE",
+    evidenceTitle: "Raw Source Unchanged",
+    evidenceText: "No transformations applied. Data flows directly to staging.",
+    status: "NOMINAL",
+    statusColor: "#00ff88",
+    healthPct: 95,
+    diagnostic: "Raw MySQL ingestion. Uniqueness test on customer_id passes.",
+    edgeBadges: { "stg_customers": "OK" }
   },
   {
     key: "stg_customers",
     fqn: "acme_nexus_analytics.ANALYTICS.STAGING.stg_customers",
     label: "stg_customers",
     role: "suspect",
-    x: 240, y: 200,
-    color: 0xe0c040,
+    x: 220, y: 180,
+    color: 0xff44aa,
     badge: "STAGING",
-    evidenceTitle: "GHOST OWNERSHIP",
-    evidenceText: "stg_customers owner: 'test'\nNo real person claimed this table.\nTransformation logic unaudited.",
+    evidenceTitle: "Ghost Owner Card",
+    evidenceText: "Owner field set to 'test' — unclaimed table. No maintenance or monitoring.",
+    status: "ABANDONED",
+    statusColor: "#ff44ff",
+    healthPct: 35,
+    diagnostic: "Transformation logic is unaudited. Owner field is a placeholder ('test'). No deduplication is applied.",
+    edgeBadges: { "dim_customers": "DUPLICATE" }
   },
   {
-    key: "customers",
-    fqn: "acme_nexus_raw_data.acme_raw.crm.customers",
-    label: "customers (raw)",
-    role: "suspect",
-    x: 130, y: 390,
-    color: 0xe0c040,
-    badge: "SOURCE",
-    evidenceTitle: "UPSTREAM TEST",
-    evidenceText: "customers_customer_id_unique test exists\non raw MySQL table.\nNo dedup guarantee in staging layer.",
+    key: "dim_customers",
+    fqn: "acme_nexus_analytics.ANALYTICS.MARTS.dim_customers",
+    label: "dim_customers",
+    role: "victim",
+    x: 380, y: 320,
+    color: 0xff2244,
+    badge: "VICTIM",
+    evidenceTitle: "Test Abort Evidence",
+    evidenceText: "Tier 1 mart. Customer Key Uniqueness test ABORTED at 14:03.",
+    status: "CRITICAL",
+    statusColor: "#ff2244",
+    healthPct: 15,
+    diagnostic: "Tier 1 mart. Customer Key Uniqueness test ABORTED at 14:03.",
+    edgeBadges: { "customer_metrics": "DUPLICATE" }
   },
   {
     key: "customer_metrics",
     fqn: "acme_nexus_analytics.ANALYTICS.METRICS.customer_metrics",
     label: "customer_metrics",
     role: "downstream",
-    x: 640, y: 200,
-    color: 0x5088e0,
+    x: 540, y: 180,
+    color: 0xffaa00,
     badge: "DOWNSTREAM",
-    evidenceTitle: "CONTAMINATED METRICS",
-    evidenceText: "customer_metrics feeds from dim_customers.\nDuplicate customer_ids inflate aggregates.\nA victim of the crime, not the cause.",
-  },
+    evidenceTitle: "Inflated Metrics",
+    evidenceText: "Aggregates are inflated by duplicates from upstream — metrics are unreliable.",
+    status: "CONGESTED",
+    statusColor: "#ffcc00",
+    healthPct: 45,
+    diagnostic: "Aggregates from dim_customers. Inflated by upstream duplicates.",
+    edgeBadges: {}
+  }
 ];
 
 // Edges: from key -> to key
@@ -536,6 +556,9 @@ class MapScene extends Phaser.Scene {
   init() {
     this.evidence = [];
     this.dialogueOpen = false;
+    this.richPanelContainer = null;  // Phaser container for the floating panel
+    this.richMode = "none";           // "none" | "info" | "evidence"
+    this.richCurrentNode = null;      // Currently selected node key
     this.liveData = {};
     this.dialogueLines = {};
     this.lineIndex = {};
@@ -574,16 +597,13 @@ class MapScene extends Phaser.Scene {
       this.nodeGroups[n.key] = this._buildNode(n);
     });
 
-    // Evidence panel (right side)
-    this._buildEvidencePanel();
+    // Rich info panel (replaces evidence panel and accuse button)
+    this._buildRichInfoPanel();
 
     // Status bar
     this.statusBar = this.add.text(W / 2, H - 14, "Click a node to interview. Collect evidence to build your case.", {
       fontFamily: FONT_BODY, fontSize: "16px", color: "#a0a0c0",
     }).setOrigin(0.5);
-
-    // Accusation button (hidden until 2+ evidence)
-    this._buildAccuseButton();
 
     // Dialogue overlay (hidden)
     this._buildDialogueBox();
@@ -688,8 +708,10 @@ class MapScene extends Phaser.Scene {
       fontFamily: FONT_BODY, fontSize: "15px", color: "#080814",
     }).setOrigin(0.5);
 
+    const labelFontSize = label.length > 12 ? "13px" : "16px";
     const labelText = this.add.text(x, y + 4, label, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#e0e0f0",
+      fontFamily: FONT_BODY, fontSize: labelFontSize, color: "#e0e0f0",
+      wordWrap: { width: bw - 10 },
     }).setOrigin(0.5);
 
     const subText = this.add.text(x, y + 20, "...", {
@@ -708,7 +730,7 @@ class MapScene extends Phaser.Scene {
       const zone = this.add.zone(x, y, bw, bh).setInteractive({ useHandCursor: true });
       zone.on("pointerover", () => { g.clear(); this._redrawNodeHover(g, nodeDef, true); });
       zone.on("pointerout",  () => { g.clear(); this._redrawNodeHover(g, nodeDef, false); });
-      zone.on("pointerdown", () => this._openDialogue(nodeDef));
+      zone.on("pointerdown", () => this._showRichInfo(nodeDef));
     }
 
     return { g, labelText, subText };
@@ -727,45 +749,6 @@ class MapScene extends Phaser.Scene {
     g.strokeRect(bx, by, bw, bh);
     g.fillStyle(color, 0.9);
     g.fillRect(bx, by, bw, 18);
-  }
-
-  _buildEvidencePanel() {
-    const px = W - 165, py = 70, pw = 150, ph = 400;
-    const panelGfx = this.add.graphics();
-    panelGfx.fillStyle(0x080812, 1);
-    panelGfx.fillRect(px, py, pw, ph);
-    panelGfx.lineStyle(1, 0x303050, 1);
-    panelGfx.strokeRect(px, py, pw, ph);
-
-    this.add.text(px + pw / 2, py + 14, "EVIDENCE", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
-    }).setOrigin(0.5);
-
-    this.evidenceList = this.add.text(px + 10, py + 32, "No evidence collected.", {
-      fontFamily: FONT_BODY, fontSize: "14px", color: "#8080a8",
-      wordWrap: { width: pw - 20 }, lineSpacing: 4,
-    });
-
-    this.evidenceCountText = this.add.text(px + pw / 2, py + ph - 14, "0 items", {
-      fontFamily: FONT_BODY, fontSize: "14px", color: "#7070a0",
-    }).setOrigin(0.5);
-  }
-
-  _buildAccuseButton() {
-    const aw = 260, ah = 42;
-    const ax = W / 2 - aw / 2, ay = H - 76;
-    this.accuseBg = this.add.graphics().setDepth(5);
-    this.accuseText = this.add.text(W / 2, ay + ah / 2, "MAKE ACCUSATION", {
-      fontFamily: FONT_BODY, fontSize: "18px", color: "#ffffff",
-    }).setOrigin(0.5).setVisible(false).setDepth(5);
-
-    this.accuseZone = this.add.zone(W / 2, ay + ah / 2, aw, ah).setDepth(5);
-    this.accuseZone.on("pointerdown", () => {
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () =>
-        this.scene.start("AccusationScene", { evidence: this.evidence }));
-    });
-    this._accuseFlash = false;
   }
 
   _showAccuseButton() {
@@ -795,9 +778,466 @@ class MapScene extends Phaser.Scene {
     this.statusBar.setText("");
   }
 
+  _buildRichInfoPanel() {
+    const panelW = 260, panelH = 540;
+    const panelX = W - 16 - panelW;  // right: 16
+    const panelY = 30;                // top: 30
+
+    const ctr = this.add.container(0, 0).setDepth(10);
+    this.richPanelContainer = ctr;
+
+    // Outer glow shadow
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.5);
+    shadow.fillRect(panelX + 3, panelY + 3, panelW, panelH);
+    ctr.add(shadow);
+
+    // Background panel
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0a0a14, 0.98);
+    bg.fillRect(panelX, panelY, panelW, panelH);
+    bg.lineStyle(1, 0x2a2a4a, 0.9);
+    bg.strokeRect(panelX, panelY, panelW, panelH);
+    ctr.add(bg);
+
+    // Top accent gradient bar (4px tall)
+    const bar = this.add.graphics();
+    const segs = 20;
+    for (let i = 0; i < segs; i++) {
+      const t = i / (segs - 1);
+      const r = Math.floor(0x44 + (0xaa - 0x44) * t);
+      const g = Math.floor(0x66 + (0x44 - 0x66) * t);
+      const b = Math.floor(0xff + (0xff - 0xff) * t);
+      const col = (r << 16) | (g << 8) | b;
+      bar.fillStyle(col, 0.95);
+      bar.fillRect(panelX + (panelW * i) / segs, panelY, panelW / segs + 1, 4);
+    }
+    ctr.add(bar);
+
+    // Store panel metadata
+    ctr.panelX = panelX;
+    ctr.panelY = panelY;
+    ctr.panelW = panelW;
+    ctr.panelH = panelH;
+
+    // Show default state
+    this._showEvidenceBoard();
+  }
+
+  _drawDivider(ctr, px, py, pw) {
+    const g = this.add.graphics();
+    g.lineStyle(1, 0x1a1a3a, 0.8);
+    g.lineBetween(px + 16, py, px + pw - 16, py);
+    ctr.add(g);
+  }
+
+  _showRichInfo(nodeDef) {
+    this.richMode = "info";
+    this.richCurrentNode = nodeDef.key;
+
+    const ctr = this.richPanelContainer;
+    const px = ctr.panelX, py = ctr.panelY, pw = ctr.panelW;
+
+    // Clear previous content (destroy all children except shadow/bg/bar)
+    ctr.getAll().forEach((obj, idx) => {
+      if (idx > 2) obj.destroy();
+    });
+
+    const PAD = 16;
+    const innerX = px + PAD;
+    const innerW = pw - PAD * 2;
+    let y = py + 16;
+
+    // ─── HEADER ────────────────────────────
+    // Back-to-board link (top-right, only when evidence exists)
+    if (this.evidence.length > 0) {
+      const backLabel = this.add.text(px + pw - PAD, y, `← BOARD (${this.evidence.length})`, {
+        fontFamily: FONT_BODY, fontSize: "12px", color: "#e8c97e",
+      }).setOrigin(1, 0);
+      ctr.add(backLabel);
+      const backZone = this.add.zone(px + pw - PAD - 60, y + 7, 120, 16)
+        .setInteractive({ useHandCursor: true });
+      ctr.add(backZone);
+      backZone.on("pointerdown", () => this._showEvidenceBoard());
+      backZone.on("pointerover", () => backLabel.setColor("#ffffff"));
+      backZone.on("pointerout",  () => backLabel.setColor("#e8c97e"));
+    }
+    y += this.evidence.length > 0 ? 18 : 0;
+
+    // Role badge pill
+    const badgeGfx = this.add.graphics();
+    const badgeText = nodeDef.badge;
+    const badgeW = badgeText.length * 8 + 16;
+    badgeGfx.fillStyle(nodeDef.color, 0.18);
+    badgeGfx.fillRoundedRect(innerX, y, badgeW, 18, 2);
+    badgeGfx.lineStyle(1, nodeDef.color, 0.6);
+    badgeGfx.strokeRoundedRect(innerX, y, badgeW, 18, 2);
+    ctr.add(badgeGfx);
+    ctr.add(this.add.text(innerX + badgeW / 2, y + 9, badgeText, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#" + nodeDef.color.toString(16).padStart(6, "0"), letterSpacing: 1,
+    }).setOrigin(0.5, 0.5));
+    y += 28;
+
+    // Node label - prominent
+    ctr.add(this.add.text(innerX, y, nodeDef.label, {
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#ffffff", letterSpacing: 0,
+      wordWrap: { width: innerW },
+    }).setOrigin(0, 0));
+    y += 24;
+
+    // FQN - subtle, small, truncated to fit
+    const fqnParts = nodeDef.fqn.split(".");
+    const fqnShort = fqnParts.length > 2 ? `…${fqnParts.slice(-2).join(".")}` : nodeDef.fqn;
+    ctr.add(this.add.text(innerX, y, fqnShort, {
+      fontFamily: FONT_BODY, fontSize: "12px", color: "#505080", wordWrap: { width: innerW },
+    }).setOrigin(0, 0));
+    y += 20;
+
+    // Status row - colored dot + label
+    const statusHex = parseInt(nodeDef.statusColor.slice(1), 16);
+    const statusGfx = this.add.graphics();
+    statusGfx.fillStyle(statusHex, 1);
+    statusGfx.fillCircle(innerX + 5, y + 8, 5);
+    statusGfx.fillStyle(statusHex, 0.25);
+    statusGfx.fillCircle(innerX + 5, y + 8, 9);
+    ctr.add(statusGfx);
+    ctr.add(this.add.text(innerX + 18, y, nodeDef.status, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: nodeDef.statusColor, letterSpacing: 1,
+    }).setOrigin(0, 0));
+    y += 22;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 10;
+
+    // ─── HEALTH ────────────────────────────
+    ctr.add(this.add.text(innerX, y, "HEALTH", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + innerW, y, `${nodeDef.healthPct}%`, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: nodeDef.statusColor,
+    }).setOrigin(1, 0));
+    y += 16;
+
+    const barH = 8;
+    const healthTrackGfx = this.add.graphics();
+    healthTrackGfx.fillStyle(0x12122a, 1);
+    healthTrackGfx.fillRoundedRect(innerX, y, innerW, barH, 2);
+    healthTrackGfx.lineStyle(1, 0x2a2a4a, 0.6);
+    healthTrackGfx.strokeRoundedRect(innerX, y, innerW, barH, 2);
+    const fillW = innerW * (nodeDef.healthPct / 100);
+    healthTrackGfx.fillStyle(statusHex, 1);
+    healthTrackGfx.fillRoundedRect(innerX, y, fillW, barH, 2);
+    healthTrackGfx.fillStyle(0xffffff, 0.15);
+    healthTrackGfx.fillRect(innerX, y, fillW, 2);
+    ctr.add(healthTrackGfx);
+    y += barH + 12;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 10;
+
+    // ─── INFO GRID (2-column) ──────────────
+    const colW = innerW / 2;
+
+    ctr.add(this.add.text(innerX, y, "OWNER", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + colW, y, "LAST TEST", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 15;
+
+    const ownerDisplay = this.liveData[nodeDef.key]?.owners?.[0]?.displayName ||
+                         (nodeDef.role === "suspect" ? "test" : "—");
+    const ownerColor = ownerDisplay === "test" ? "#ff8888" : "#e8c97e";
+    ctr.add(this.add.text(innerX, y, ownerDisplay, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: ownerColor,
+    }).setOrigin(0, 0));
+
+    const testText = this.liveData[nodeDef.key]?.testResult || (nodeDef.role === "victim" ? "ABORTED" : "PASS");
+    const testColor = testText.includes("PASS") ? "#00ff88" : "#ff4444";
+    ctr.add(this.add.text(innerX + colW, y, testText, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: testColor,
+    }).setOrigin(0, 0));
+    y += 22;
+
+    const colCount = this.liveData[nodeDef.key]?.columns?.length || 0;
+    ctr.add(this.add.text(innerX, y, "COLUMNS", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + colW, y, "SERVICE", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 15;
+
+    ctr.add(this.add.text(innerX, y, `${colCount} fields`, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#aabbff",
+    }).setOrigin(0, 0));
+    const svcType = this.liveData[nodeDef.key]?.serviceType || "—";
+    ctr.add(this.add.text(innerX + colW, y, svcType, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#aabbff",
+    }).setOrigin(0, 0));
+    y += 22;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 10;
+
+    // ─── LINEAGE ───────────────────────────
+    ctr.add(this.add.text(innerX, y, "LINEAGE", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 16;
+
+    const inbound = EDGE_DEFS.find(e => e.to === nodeDef.key);
+    const outbound = EDGE_DEFS.find(e => e.from === nodeDef.key);
+    const inboundLabel = inbound ? NODE_DEFS.find(n => n.key === inbound.from)?.label || inbound.from : "—";
+    const outboundLabel = outbound ? NODE_DEFS.find(n => n.key === outbound.to)?.label || outbound.to : "—";
+
+    ctr.add(this.add.text(innerX, y, "↑", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#6070a0",
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + 18, y, inboundLabel, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: inbound ? "#ccccff" : "#404060",
+    }).setOrigin(0, 0));
+    if (inbound) {
+      const badge = nodeDef.edgeBadges?.[inbound.from];
+      if (badge) {
+        const badgeColor = badge === "DUPLICATE" ? "#ff4488" : "#00ff88";
+        const badgeBgColor = badge === "DUPLICATE" ? 0x441122 : 0x114422;
+        const bw = badge.length * 7 + 10;
+        const bg2 = this.add.graphics();
+        bg2.fillStyle(badgeBgColor, 0.85);
+        bg2.fillRoundedRect(innerX + innerW - bw, y + 1, bw, 16, 2);
+        ctr.add(bg2);
+        ctr.add(this.add.text(innerX + innerW - bw / 2, y + 9, badge, {
+          fontFamily: FONT_BODY, fontSize: "11px", color: badgeColor, letterSpacing: 1,
+        }).setOrigin(0.5, 0.5));
+      }
+    }
+    y += 20;
+
+    ctr.add(this.add.text(innerX, y, "↓", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#6070a0",
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + 18, y, outboundLabel, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: outbound ? "#ccccff" : "#404060",
+    }).setOrigin(0, 0));
+    y += 24;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 12;
+
+    // ─── DIAGNOSTIC ────────────────────────
+    ctr.add(this.add.text(innerX, y, "DIAGNOSTIC", {
+      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 16;
+
+    // Callout box for diagnostic
+    const diagText = this.add.text(innerX + 10, y + 8, nodeDef.diagnostic, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#d0d0e8",
+      wordWrap: { width: innerW - 20 }, lineSpacing: 2,
+    }).setOrigin(0, 0);
+    const diagH = diagText.height + 16;
+    const diagBg = this.add.graphics();
+    diagBg.fillStyle(0x12122a, 0.6);
+    diagBg.fillRoundedRect(innerX, y, innerW, diagH, 2);
+    diagBg.lineStyle(1, nodeDef.color, 0.3);
+    diagBg.strokeRoundedRect(innerX, y, innerW, diagH, 2);
+    diagBg.fillStyle(nodeDef.color, 0.7);
+    diagBg.fillRect(innerX, y, 3, diagH);
+    ctr.add(diagBg);
+    ctr.add(diagText);
+    y += diagH + 14;
+
+    // ─── INTERVIEW BUTTON ──────────────────
+    if (nodeDef.role !== "victim") {
+      const btnH = 38;
+      const btnGfx = this.add.graphics();
+      const drawBtn = (hover) => {
+        btnGfx.clear();
+        btnGfx.fillStyle(hover ? 0x2a3a8a : 0x1a2050, 1);
+        btnGfx.fillRoundedRect(innerX, y, innerW, btnH, 3);
+        btnGfx.lineStyle(1.5, hover ? 0x88aaff : 0x4466ff, hover ? 1 : 0.8);
+        btnGfx.strokeRoundedRect(innerX, y, innerW, btnH, 3);
+        btnGfx.fillStyle(0xffffff, hover ? 0.14 : 0.07);
+        btnGfx.fillRect(innerX + 2, y + 2, innerW - 4, 2);
+      };
+      drawBtn(false);
+      ctr.add(btnGfx);
+
+      const btnText = this.add.text(innerX + innerW / 2, y + btnH / 2, "▶  INTERVIEW", {
+        fontFamily: FONT_BODY, fontSize: "18px", color: "#aaccff", letterSpacing: 3, align: "center",
+      }).setOrigin(0.5, 0.5);
+      ctr.add(btnText);
+
+      // Full-area click zone (covers the entire button, not just the text)
+      const btnZone = this.add.zone(innerX + innerW / 2, y + btnH / 2, innerW, btnH)
+        .setInteractive({ useHandCursor: true });
+      ctr.add(btnZone);
+
+      btnZone.on("pointerdown", () => this._openDialogue(nodeDef));
+      btnZone.on("pointerover", () => { drawBtn(true); btnText.setColor("#ffffff"); });
+      btnZone.on("pointerout",  () => { drawBtn(false); btnText.setColor("#aaccff"); });
+    } else {
+      // Victim notice
+      const noticeGfx = this.add.graphics();
+      noticeGfx.fillStyle(0x2a0a14, 0.6);
+      noticeGfx.fillRoundedRect(innerX, y, innerW, 28, 3);
+      noticeGfx.lineStyle(1, 0xff2244, 0.4);
+      noticeGfx.strokeRoundedRect(innerX, y, innerW, 28, 3);
+      ctr.add(noticeGfx);
+      ctr.add(this.add.text(innerX + innerW / 2, y + 14, "⚠  VICTIM — UNINTERVIEWABLE", {
+        fontFamily: FONT_BODY, fontSize: "13px", color: "#ff8899", letterSpacing: 1, align: "center",
+      }).setOrigin(0.5, 0.5));
+    }
+  }
+
+  _showEvidenceBoard() {
+    this.richMode = "evidence";
+    this.richCurrentNode = null;
+
+    const ctr = this.richPanelContainer;
+    const px = ctr.panelX, py = ctr.panelY, pw = ctr.panelW, ph = ctr.panelH;
+
+    // Clear previous content (destroy all children except shadow/bg/bar)
+    ctr.getAll().forEach((obj, idx) => {
+      if (idx > 2) obj.destroy();
+    });
+
+    const PAD = 16;
+    const innerX = px + PAD;
+    const innerW = pw - PAD * 2;
+    let y = py + 16;
+
+    // ─── HEADER ────────────────────────────
+    ctr.add(this.add.text(innerX, y, "EVIDENCE BOARD", {
+      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    // Counter badge
+    const cnt = this.evidence.length;
+    const cntBg = this.add.graphics();
+    const cntW = 32;
+    cntBg.fillStyle(cnt > 0 ? 0x4a3a0a : 0x1a1a2a, 0.9);
+    cntBg.fillRoundedRect(innerX + innerW - cntW, y - 1, cntW, 20, 10);
+    ctr.add(cntBg);
+    ctr.add(this.add.text(innerX + innerW - cntW / 2, y + 9, `${cnt}`, {
+      fontFamily: FONT_BODY, fontSize: "16px", color: cnt > 0 ? "#ffd88a" : "#5060a0", align: "center",
+    }).setOrigin(0.5, 0.5));
+    y += 28;
+
+    ctr.add(this.add.text(innerX, y, "Click nodes → INTERVIEW → COLLECT", {
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#6070a0", wordWrap: { width: innerW },
+    }).setOrigin(0, 0));
+    y += 22;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 14;
+
+    // ─── EVIDENCE LIST ─────────────────────
+    if (this.evidence.length === 0) {
+      // Empty state
+      const emptyGfx = this.add.graphics();
+      emptyGfx.fillStyle(0x12122a, 0.4);
+      emptyGfx.fillRoundedRect(innerX, y, innerW, 92, 4);
+      emptyGfx.lineStyle(1, 0x2a2a4a, 0.6);
+      emptyGfx.strokeRoundedRect(innerX, y, innerW, 92, 4);
+      ctr.add(emptyGfx);
+      ctr.add(this.add.text(innerX + innerW / 2, y + 32, "📁", {
+        fontFamily: FONT_BODY, fontSize: "24px", color: "#3a3a5a",
+      }).setOrigin(0.5, 0.5));
+      ctr.add(this.add.text(innerX + innerW / 2, y + 64, "NO EVIDENCE COLLECTED", {
+        fontFamily: FONT_BODY, fontSize: "13px", color: "#5060a0", letterSpacing: 1,
+      }).setOrigin(0.5, 0.5));
+      y += 104;
+    } else {
+      this.evidence.forEach((ev, idx) => {
+        // Measure body text first to size card properly
+        const bodyText = this.add.text(innerX + 12, y + 30, ev.evidenceText, {
+          fontFamily: FONT_BODY, fontSize: "13px", color: "#9da0c0",
+          wordWrap: { width: innerW - 24 }, lineSpacing: 2,
+        }).setOrigin(0, 0);
+        const cardH = bodyText.height + 42;
+
+        const cardGfx = this.add.graphics();
+        cardGfx.fillStyle(0x12122a, 0.9);
+        cardGfx.fillRoundedRect(innerX, y, innerW, cardH, 3);
+        cardGfx.lineStyle(1, 0x2a3a6a, 0.7);
+        cardGfx.strokeRoundedRect(innerX, y, innerW, cardH, 3);
+        cardGfx.fillStyle(0xe8c97e, 0.8);
+        cardGfx.fillRect(innerX, y, 3, cardH);
+        cardGfx.fillStyle(0x2a2a4a, 0.9);
+        cardGfx.fillCircle(innerX + 18, y + 16, 10);
+        ctr.add(cardGfx);
+        ctr.add(this.add.text(innerX + 18, y + 16, `${idx + 1}`, {
+          fontFamily: FONT_BODY, fontSize: "14px", color: "#e8c97e",
+        }).setOrigin(0.5, 0.5));
+
+        ctr.add(this.add.text(innerX + 34, y + 8, ev.evidenceTitle, {
+          fontFamily: FONT_BODY, fontSize: "15px", color: "#e8c97e", letterSpacing: 1,
+        }).setOrigin(0, 0));
+
+        // body already added; bring above card bg
+        ctr.add(bodyText);
+
+        y += cardH + 10;
+      });
+    }
+
+    // ─── MAKE ACCUSATION BUTTON ────────────
+    if (this.evidence.length >= 2) {
+      y += 6;
+      const btnH = 42;
+      const accGfx = this.add.graphics();
+
+      const drawBtn = (intensity) => {
+        accGfx.clear();
+        accGfx.fillStyle(0xff2244, 0.15 + intensity * 0.1);
+        accGfx.fillRoundedRect(innerX - 2, y - 2, innerW + 4, btnH + 4, 4);
+        accGfx.fillStyle(0x4a0a14, 1);
+        accGfx.fillRoundedRect(innerX, y, innerW, btnH, 3);
+        accGfx.lineStyle(1.5, 0xff2244, 0.9 + intensity * 0.1);
+        accGfx.strokeRoundedRect(innerX, y, innerW, btnH, 3);
+        accGfx.fillStyle(0xff8888, 0.12 + intensity * 0.08);
+        accGfx.fillRect(innerX + 2, y + 2, innerW - 4, 2);
+      };
+      drawBtn(0);
+      ctr.add(accGfx);
+
+      this.tweens.add({
+        targets: { v: 0 },
+        v: 1,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        onUpdate: tw => drawBtn(tw.getValue()),
+      });
+
+      const accText = this.add.text(innerX + innerW / 2, y + btnH / 2, "▶  MAKE ACCUSATION", {
+        fontFamily: FONT_BODY, fontSize: "18px", color: "#ffaaaa", letterSpacing: 3, align: "center",
+      }).setOrigin(0.5, 0.5);
+      ctr.add(accText);
+
+      // Full-area click zone
+      const accZone = this.add.zone(innerX + innerW / 2, y + btnH / 2, innerW, btnH)
+        .setInteractive({ useHandCursor: true });
+      ctr.add(accZone);
+
+      accZone.on("pointerdown", () => {
+        this.scene.start("AccusationScene", { evidence: this.evidence });
+      });
+      accZone.on("pointerover", () => accText.setColor("#ffffff"));
+      accZone.on("pointerout",  () => accText.setColor("#ffaaaa"));
+    } else if (this.evidence.length === 1) {
+      // Hint
+      ctr.add(this.add.text(innerX + innerW / 2, y + 8, "Need 1 more piece of evidence", {
+        fontFamily: FONT_BODY, fontSize: "13px", color: "#6070a0", align: "center",
+      }).setOrigin(0.5, 0));
+    }
+  }
+
   _buildDialogueBox() {
-    const dw = 580, dh = 220;
-    const dx = (W - dw) / 2, dy = H - dh - 24;
+    const dw = 440, dh = 200;
+    const dx = 20, dy = H - 20 - dh;
 
     this.dlgContainer = this.add.container(0, 0).setVisible(false);
 
@@ -924,6 +1364,16 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.setVisible(true);
     this.dlgContainer.setDepth(10);
 
+    // Restore or set collect button state
+    const alreadyCollected = this.evidence.some(e => e.key === nodeDef.key);
+    if (alreadyCollected) {
+      this.dlgCollectText.setText("✓  COLLECTED").setColor("#44ff88");
+      this.dlgCollectZone.removeInteractive();
+    } else {
+      this.dlgCollectText.setText("COLLECT EVIDENCE").setColor("#88aaff");
+      this.dlgCollectZone.setInteractive({ useHandCursor: true });
+    }
+
     this.statusBar.setText(`Interviewing: ${nodeDef.label}`);
 
     // Fetch LLM dialogue if not already fetched
@@ -947,6 +1397,7 @@ class MapScene extends Phaser.Scene {
     this.currentNode = null;
     if (this._typeTimer) this._typeTimer.remove();
     this.statusBar.setText("Click a node to interview. Collect evidence to build your case.");
+    this._showEvidenceBoard();
   }
 
   _collectEvidence() {
@@ -958,12 +1409,10 @@ class MapScene extends Phaser.Scene {
       return;
     }
     this.evidence.push({ key, ...node });
-    this._updateEvidencePanel();
     this._closeDialogue();
+    this._showEvidenceBoard();
     SFX.evidenceStamp();
     this.statusBar.setText("Evidence collected: " + node.evidenceTitle);
-
-    if (this.evidence.length >= 2) this._showAccuseButton();
   }
 
   _updateEvidencePanel() {
