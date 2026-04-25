@@ -1053,6 +1053,91 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  _showEvidenceBoard() {
+    this.richMode = "evidence";
+    this.richCurrentNode = null;
+
+    const ctr = this.richPanelContainer;
+    const px = ctr.panelX, py = ctr.panelY, pw = ctr.panelW, ph = ctr.panelH;
+
+    // Clear previous content (destroy all children except bg/bar)
+    ctr.getAll().forEach((obj, idx) => {
+      if (idx > 1) obj.destroy();
+    });
+
+    const contentY = py + 20;
+    let currentY = contentY + 8;
+
+    // Header
+    this.add.text(px + 10, currentY, `EVIDENCE (${this.evidence.length})`, {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#e8c97e", letterSpacing: 1,
+    }).setOrigin(0, 0);
+    currentY += 16;
+
+    // Evidence cards
+    if (this.evidence.length === 0) {
+      this.add.text(px + 10, currentY, "No evidence collected.", {
+        fontFamily: FONT_BODY, fontSize: "9px", color: "#5060a0", wordWrap: { width: pw - 20 },
+      }).setOrigin(0, 0);
+    } else {
+      this.evidence.forEach(ev => {
+        // Card background
+        const cardGfx = this.add.graphics();
+        cardGfx.fillStyle(0x12122a, 0.8);
+        cardGfx.fillRect(px + 6, currentY, pw - 12, 36);
+        cardGfx.lineStyle(1, 0x2a3a6a, 0.6);
+        cardGfx.strokeRect(px + 6, currentY, pw - 12, 36);
+
+        // Title
+        this.add.text(px + 10, currentY + 4, ev.title, {
+          fontFamily: FONT_BODY, fontSize: "8px", color: "#e8c97e",
+        }).setOrigin(0, 0);
+
+        // Text
+        this.add.text(px + 10, currentY + 14, ev.text, {
+          fontFamily: FONT_BODY, fontSize: "7px", color: "#9090b8", wordWrap: { width: pw - 20 },
+        }).setOrigin(0, 0);
+
+        currentY += 40;
+      });
+    }
+
+    // MAKE ACCUSATION button (if 2+ evidence)
+    if (this.evidence.length >= 2) {
+      currentY += 8;
+      const accGfx = this.add.graphics();
+      const accX = px + 6, accY = currentY, accW = pw - 12, accH = 20;
+      accGfx.fillStyle(0x1a1a3a, 0.9);
+      accGfx.fillRect(accX, accY, accW, accH);
+      accGfx.lineStyle(1, 0xff2244, 0.8);
+      accGfx.strokeRect(accX, accY, accW, accH);
+
+      const accText = this.add.text(accX + accW / 2, accY + accH / 2, "MAKE ACCUSATION", {
+        fontFamily: FONT_BODY, fontSize: "8px", color: "#ff8888", letterSpacing: 1, align: "center",
+      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+
+      accText.on("pointerdown", () => {
+        this.scene.start("AccusationScene");
+      });
+
+      accText.on("pointerover", () => {
+        accGfx.clear();
+        accGfx.fillStyle(0x220a0a, 0.9);
+        accGfx.fillRect(accX, accY, accW, accH);
+        accGfx.lineStyle(1, 0xff2244, 0.9);
+        accGfx.strokeRect(accX, accY, accW, accH);
+      });
+
+      accText.on("pointerout", () => {
+        accGfx.clear();
+        accGfx.fillStyle(0x1a1a3a, 0.9);
+        accGfx.fillRect(accX, accY, accW, accH);
+        accGfx.lineStyle(1, 0xff2244, 0.8);
+        accGfx.strokeRect(accX, accY, accW, accH);
+      });
+    }
+  }
+
   _buildDialogueBox() {
     const dw = 580, dh = 220;
     const dx = (W - dw) / 2, dy = H - dh - 24;
