@@ -21,11 +21,12 @@ The upstream lineage spans MySQL CRM → Snowflake staging → Snowflake mart. O
 ## How to Play
 
 1. **Briefing** — Read the incident report. Understand what broke and why it matters.
-2. **Investigation** — Click nodes on the lineage map to interview them. Click the cyan diamonds on edges to inspect column-level data flow.
-3. **Evidence** — Collect at least 2 evidence cards from your interviews.
-4. **Accusation** — Name the responsible table.
-5. **Confrontation** — The suspect makes a false statement. Present the correct evidence card to break their alibi.
-6. **Verdict** — Case closed, or go back and dig deeper.
+2. **Inspect** — Click any node to open the **Rich Info Panel** on the right: real owner, health score, column count, service type, lineage, and diagnostic. This is instant — no dialogue yet.
+3. **Interview** — Hit the INTERVIEW button inside the panel to open a dialogue with that table. Click the cyan diamonds on edges to inspect column-level data flow.
+4. **Evidence** — Collect at least 2 evidence cards. The panel switches to your Evidence Board between interviews.
+5. **Accusation** — Name the responsible table.
+6. **Confrontation** — The suspect makes a false statement. Present the correct evidence card to break their alibi.
+7. **Verdict** — Case closed, or go back and dig deeper.
 
 ---
 
@@ -112,6 +113,8 @@ Every piece of in-game information is a real API response:
 | Column lineage (customer_id flows through each edge) | `lineageDetails.columnsLineage` from the lineage response |
 | stg_customers owner: 'test' | `owners[0].displayName` from the table response |
 | Customer Key Uniqueness test | `GET /api/v1/dataQuality/testCases?entityFQN=...` |
+| Rich info panel — owner, columns, service type | Live fields from the same table response, displayed on node click |
+| LLM dialogue lines | Groq Llama 3.1 prompted with real `owner`, `serviceType`, `columns.length`, `description` |
 
 The case is solvable because the catalog already contains the answer. We just made it playable.
 
