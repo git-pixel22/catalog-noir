@@ -829,154 +829,90 @@ class MapScene extends Phaser.Scene {
     });
 
     const contentY = py + 20;
-    const fontSize = 7;
-    const lineHeight = 12;
-    let currentY = contentY + 8;
+    let currentY = contentY + 6;
 
-    // Building type
-    ctr.add(this.add.text(px + 10, currentY, `${nodeDef.status}`.toUpperCase(), {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#9090b8", letterSpacing: 1,
-    }).setOrigin(0, 0));
-    currentY += lineHeight;
-
-    // Node name
+    // Node name (large, prominent)
     ctr.add(this.add.text(px + 10, currentY, nodeDef.label, {
-      fontFamily: FONT_TITLE, fontSize: "11px", color: "#ffffff",
+      fontFamily: FONT_TITLE, fontSize: "12px", color: "#e8c97e", letterSpacing: 1,
     }).setOrigin(0, 0));
-    currentY += lineHeight + 2;
-
-    // FQN
-    ctr.add(this.add.text(px + 10, currentY, nodeDef.fqn, {
-      fontFamily: FONT_BODY, fontSize: `${fontSize - 1}px`, color: "#5060a0", wordWrap: { width: pw - 20 },
-    }).setOrigin(0, 0));
-    currentY += 20;
+    currentY += 14;
 
     // Status dot + label
     const statusGfx = this.add.graphics();
     const dotX = px + 10, dotY = currentY + 3;
     statusGfx.fillStyle(parseInt(nodeDef.statusColor.slice(1), 16), 0.9);
-    statusGfx.fillCircle(dotX, dotY, 3.5);
+    statusGfx.fillCircle(dotX, dotY, 3);
     ctr.add(statusGfx);
     ctr.add(this.add.text(dotX + 10, currentY, nodeDef.status, {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: nodeDef.statusColor, letterSpacing: 1,
+      fontFamily: FONT_BODY, fontSize: "9px", color: nodeDef.statusColor, letterSpacing: 1,
     }).setOrigin(0, 0));
-    currentY += lineHeight + 2;
+    currentY += 12;
 
-    // Health bar
+    // Health bar with label
     ctr.add(this.add.text(px + 10, currentY, "HEALTH", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#5060a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#5060a0", letterSpacing: 1,
     }).setOrigin(0, 0));
-    currentY += lineHeight;
+    currentY += 10;
 
     const healthTrackGfx = this.add.graphics();
     healthTrackGfx.fillStyle(0x1a1a2a, 0.8);
-    healthTrackGfx.fillRect(px + 10, currentY, pw - 20, 5);
+    healthTrackGfx.fillRect(px + 10, currentY, pw - 20, 6);
     const healthColor = nodeDef.statusColor === "#00ff88" ? 0x00cc66 :
                         nodeDef.statusColor === "#ff44ff" ? 0xaa44ff :
                         nodeDef.statusColor === "#ff2244" ? 0xff2244 : 0xffcc00;
     healthTrackGfx.fillStyle(healthColor, 0.9);
-    healthTrackGfx.fillRect(px + 10, currentY, (pw - 20) * (nodeDef.healthPct / 100), 5);
+    healthTrackGfx.fillRect(px + 10, currentY, (pw - 20) * (nodeDef.healthPct / 100), 6);
     ctr.add(healthTrackGfx);
-    currentY += 8;
+    currentY += 10;
 
-    ctr.add(this.add.text(px + 10, currentY, `${nodeDef.healthPct}% operational`, {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#9090b8",
+    ctr.add(this.add.text(px + 10, currentY, `${nodeDef.healthPct}%`, {
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#aabbff",
     }).setOrigin(0, 0));
-    currentY += lineHeight + 2;
+    currentY += 12;
 
     // Owner
     ctr.add(this.add.text(px + 10, currentY, "OWNER", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#5060a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#5060a0", letterSpacing: 1,
     }).setOrigin(0, 0));
-    currentY += lineHeight;
-
+    currentY += 10;
     const owner = this.liveData[nodeDef.key]?.owners?.[0]?.displayName || "Unknown";
     ctr.add(this.add.text(px + 10, currentY, owner, {
-      fontFamily: FONT_BODY, fontSize: "10px", color: "#e8c97e",
+      fontFamily: FONT_BODY, fontSize: "9px", color: "#e8c97e",
     }).setOrigin(0, 0));
-    currentY += lineHeight + 2;
-
-    // Columns
-    ctr.add(this.add.text(px + 10, currentY, `COLUMNS (${this.liveData[nodeDef.key]?.columns?.length || 0})`, {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#5060a0", letterSpacing: 2,
-    }).setOrigin(0, 0));
-    currentY += lineHeight;
-
-    const cols = this.liveData[nodeDef.key]?.columns || [];
-    cols.slice(0, 4).forEach(col => {
-      ctr.add(this.add.text(px + 10, currentY, col.name || col, {
-        fontFamily: FONT_BODY, fontSize: `${fontSize - 1}px`, color: "#aaaacc",
-        background: { color: "#1a1a2a", padding: { x: 3, y: 1 } },
-      }).setOrigin(0, 0));
-      currentY += lineHeight - 2;
-    });
-    currentY += 2;
+    currentY += 12;
 
     // Last test
     ctr.add(this.add.text(px + 10, currentY, "LAST TEST", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#5060a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#5060a0", letterSpacing: 1,
     }).setOrigin(0, 0));
-    currentY += lineHeight;
-
+    currentY += 10;
     const testText = this.liveData[nodeDef.key]?.testResult || "PASS";
     const testColor = testText.includes("PASS") ? "#00ff88" : "#ff4444";
     ctr.add(this.add.text(px + 10, currentY, testText, {
-      fontFamily: FONT_BODY, fontSize: "10px", color: testColor, fontStyle: "bold",
+      fontFamily: FONT_BODY, fontSize: "9px", color: testColor,
     }).setOrigin(0, 0));
-    currentY += lineHeight + 3;
+    currentY += 12;
 
-    // Dependencies
-    ctr.add(this.add.text(px + 10, currentY, "DEPENDENCIES", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#5060a0", letterSpacing: 2,
+    // Columns (brief)
+    const colCount = this.liveData[nodeDef.key]?.columns?.length || 0;
+    ctr.add(this.add.text(px + 10, currentY, `COLUMNS: ${colCount}`, {
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#aabbff",
     }).setOrigin(0, 0));
-    currentY += lineHeight;
+    currentY += 12;
 
-    ctr.add(this.add.text(px + 10, currentY, "← INBOUND", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#6070a0",
-    }).setOrigin(0, 0));
-    currentY += lineHeight - 2;
-
+    // Dependencies (brief)
     const inbound = EDGE_DEFS.find(e => e.to === nodeDef.key);
-    if (inbound) {
-      const badge = nodeDef.edgeBadges?.[inbound.from] || "";
-      ctr.add(this.add.text(px + 10, currentY, `${NODE_DEFS.find(n => n.key === inbound.from)?.label || inbound.from} ${badge}`, {
-        fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#ccccff",
-      }).setOrigin(0, 0));
-    } else {
-      ctr.add(this.add.text(px + 10, currentY, "none", {
-        fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#404060",
-      }).setOrigin(0, 0));
-    }
-    currentY += lineHeight;
-
-    ctr.add(this.add.text(px + 10, currentY, "→ OUTBOUND", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#6070a0",
-    }).setOrigin(0, 0));
-    currentY += lineHeight - 2;
-
     const outbound = EDGE_DEFS.find(e => e.from === nodeDef.key);
-    if (outbound) {
-      ctr.add(this.add.text(px + 10, currentY, `${NODE_DEFS.find(n => n.key === outbound.to)?.label || outbound.to}`, {
-        fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#ccccff",
-      }).setOrigin(0, 0));
-    } else {
-      ctr.add(this.add.text(px + 10, currentY, "none", {
-        fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#404060",
-      }).setOrigin(0, 0));
-    }
-    currentY += lineHeight + 2;
-
-    // Diagnostic
-    ctr.add(this.add.text(px + 10, currentY, "DIAGNOSTIC", {
-      fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#5060a0", letterSpacing: 2,
+    const inboundLabel = inbound ? NODE_DEFS.find(n => n.key === inbound.from)?.label || inbound.from : "—";
+    const outboundLabel = outbound ? NODE_DEFS.find(n => n.key === outbound.to)?.label || outbound.to : "—";
+    ctr.add(this.add.text(px + 10, currentY, `FROM: ${inboundLabel}`, {
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#ccccff",
     }).setOrigin(0, 0));
-    currentY += lineHeight;
-
-    ctr.add(this.add.text(px + 10, currentY, nodeDef.diagnostic, {
-      fontFamily: FONT_BODY, fontSize: `${fontSize - 1}px`, color: "#9090b8",
-      wordWrap: { width: pw - 20 }, lineSpacing: 2,
+    currentY += 10;
+    ctr.add(this.add.text(px + 10, currentY, `TO: ${outboundLabel}`, {
+      fontFamily: FONT_BODY, fontSize: "8px", color: "#ccccff",
     }).setOrigin(0, 0));
-    currentY += lineHeight + 8;
+    currentY += 12;
 
     // INTERVIEW button (not for victim node)
     if (nodeDef.role !== "victim") {
