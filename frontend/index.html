@@ -1047,12 +1047,12 @@ class MapScene extends Phaser.Scene {
         cardGfx.strokeRect(px + 6, currentY, pw - 12, 36);
 
         // Title
-        ctr.add(this.add.text(px + 10, currentY + 4, ev.title, {
+        ctr.add(this.add.text(px + 10, currentY + 4, ev.evidenceTitle, {
           fontFamily: FONT_BODY, fontSize: "8px", color: "#e8c97e",
         }).setOrigin(0, 0));
 
         // Text
-        ctr.add(this.add.text(px + 10, currentY + 14, ev.text, {
+        ctr.add(this.add.text(px + 10, currentY + 14, ev.evidenceText, {
           fontFamily: FONT_BODY, fontSize: "7px", color: "#9090b8", wordWrap: { width: pw - 20 },
         }).setOrigin(0, 0));
 
@@ -1261,6 +1261,7 @@ class MapScene extends Phaser.Scene {
     this.evidence.push({ key, ...node });
     this._updateEvidencePanel();
     this._closeDialogue();
+    this._showEvidenceBoard();
     SFX.evidenceStamp();
     this.statusBar.setText("Evidence collected: " + node.evidenceTitle);
 
