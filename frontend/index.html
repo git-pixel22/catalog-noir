@@ -1139,8 +1139,8 @@ class MapScene extends Phaser.Scene {
   }
 
   _buildDialogueBox() {
-    const dw = 580, dh = 220;
-    const dx = (W - dw) / 2, dy = H - dh - 24;
+    const dw = 440, dh = 200;
+    const dx = 20, dy = H - 20 - dh;
 
     this.dlgContainer = this.add.container(0, 0).setVisible(false);
 
