@@ -818,6 +818,46 @@ class MapScene extends Phaser.Scene {
     this.statusBar.setText("");
   }
 
+  _buildRichInfoPanel() {
+    const panelX = W - 20 - 210;  // right: 20, width: 210
+    const panelY = 40;            // top: 40
+    const panelW = 210, panelH = 510;
+
+    const ctr = this.add.container(0, 0).setDepth(10);
+    this.richPanelContainer = ctr;
+
+    // Background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x08080f, 0.98);
+    bg.fillRect(panelX, panelY, panelW, panelH);
+    bg.lineStyle(1, 0x2a2a4a, 0.8);
+    bg.strokeRect(panelX, panelY, panelW, panelH);
+    ctr.add(bg);
+
+    // Top accent bar (gradient approx)
+    const bar = this.add.graphics();
+    bar.fillStyle(0x4466ff, 0.8);
+    bar.fillRect(panelX, panelY, panelW / 2, 3);
+    bar.fillStyle(0xaa44ff, 0.8);
+    bar.fillRect(panelX + panelW / 2, panelY, panelW / 2, 3);
+    ctr.add(bar);
+
+    // Content area (will be populated by _showRichInfo or _showEvidenceBoard)
+    const contentZone = this.add.zone(panelX, panelY + 20, panelW, panelH - 20).setOrigin(0, 0);
+    ctr.add(contentZone);
+
+    // Store panel metadata for later reference
+    ctr.x = 0;
+    ctr.y = 0;
+    ctr.panelX = panelX;
+    ctr.panelY = panelY;
+    ctr.panelW = panelW;
+    ctr.panelH = panelH;
+
+    // Show default state (evidence board empty)
+    this._showEvidenceBoard();
+  }
+
   _buildDialogueBox() {
     const dw = 580, dh = 220;
     const dx = (W - dw) / 2, dy = H - dh - 24;
