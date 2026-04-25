@@ -1075,7 +1075,7 @@ class MapScene extends Phaser.Scene {
       }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true }));
 
       accText.on("pointerdown", () => {
-        this.scene.start("AccusationScene");
+        this.scene.start("AccusationScene", { evidence: this.evidence });
       });
 
       accText.on("pointerover", () => {
