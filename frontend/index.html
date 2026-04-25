@@ -936,7 +936,7 @@ class MapScene extends Phaser.Scene {
 
     const inbound = EDGE_DEFS.find(e => e.to === nodeDef.key);
     if (inbound) {
-      const badge = nodeDef.edgeBadges?.[EDGE_DEFS.findIndex(e => e === inbound)] || "";
+      const badge = nodeDef.edgeBadges?.[inbound.from] || "";
       this.add.text(px + 10, currentY, `${NODE_DEFS.find(n => n.key === inbound.from)?.label || inbound.from} ${badge}`, {
         fontFamily: FONT_BODY, fontSize: `${fontSize}px`, color: "#ccccff",
       }).setOrigin(0, 0);
