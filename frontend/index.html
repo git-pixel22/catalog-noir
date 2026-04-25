@@ -749,45 +749,6 @@ class MapScene extends Phaser.Scene {
     g.fillRect(bx, by, bw, 18);
   }
 
-  _buildEvidencePanel() {
-    const px = W - 165, py = 70, pw = 150, ph = 400;
-    const panelGfx = this.add.graphics();
-    panelGfx.fillStyle(0x080812, 1);
-    panelGfx.fillRect(px, py, pw, ph);
-    panelGfx.lineStyle(1, 0x303050, 1);
-    panelGfx.strokeRect(px, py, pw, ph);
-
-    this.add.text(px + pw / 2, py + 14, "EVIDENCE", {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#e8c97e",
-    }).setOrigin(0.5);
-
-    this.evidenceList = this.add.text(px + 10, py + 32, "No evidence collected.", {
-      fontFamily: FONT_BODY, fontSize: "14px", color: "#8080a8",
-      wordWrap: { width: pw - 20 }, lineSpacing: 4,
-    });
-
-    this.evidenceCountText = this.add.text(px + pw / 2, py + ph - 14, "0 items", {
-      fontFamily: FONT_BODY, fontSize: "14px", color: "#7070a0",
-    }).setOrigin(0.5);
-  }
-
-  _buildAccuseButton() {
-    const aw = 260, ah = 42;
-    const ax = W / 2 - aw / 2, ay = H - 76;
-    this.accuseBg = this.add.graphics().setDepth(5);
-    this.accuseText = this.add.text(W / 2, ay + ah / 2, "MAKE ACCUSATION", {
-      fontFamily: FONT_BODY, fontSize: "18px", color: "#ffffff",
-    }).setOrigin(0.5).setVisible(false).setDepth(5);
-
-    this.accuseZone = this.add.zone(W / 2, ay + ah / 2, aw, ah).setDepth(5);
-    this.accuseZone.on("pointerdown", () => {
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () =>
-        this.scene.start("AccusationScene", { evidence: this.evidence }));
-    });
-    this._accuseFlash = false;
-  }
-
   _showAccuseButton() {
     const aw = 260, ah = 42;
     const ax = W / 2 - aw / 2, ay = H - 76;
