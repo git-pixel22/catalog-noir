@@ -708,8 +708,10 @@ class MapScene extends Phaser.Scene {
       fontFamily: FONT_BODY, fontSize: "15px", color: "#080814",
     }).setOrigin(0.5);
 
+    const labelFontSize = label.length > 12 ? "13px" : "16px";
     const labelText = this.add.text(x, y + 4, label, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#e0e0f0",
+      fontFamily: FONT_BODY, fontSize: labelFontSize, color: "#e0e0f0",
+      wordWrap: { width: bw - 10 },
     }).setOrigin(0.5);
 
     const subText = this.add.text(x, y + 20, "...", {
@@ -859,47 +861,49 @@ class MapScene extends Phaser.Scene {
     ctr.add(this.add.text(innerX + badgeW / 2, y + 9, badgeText, {
       fontFamily: FONT_BODY, fontSize: "14px", color: "#" + nodeDef.color.toString(16).padStart(6, "0"), letterSpacing: 1,
     }).setOrigin(0.5, 0.5));
-    y += 26;
+    y += 28;
 
     // Node label - prominent
     ctr.add(this.add.text(innerX, y, nodeDef.label, {
-      fontFamily: FONT_BODY, fontSize: "24px", color: "#ffffff", letterSpacing: 0,
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#ffffff", letterSpacing: 0,
+      wordWrap: { width: innerW },
     }).setOrigin(0, 0));
-    y += 26;
+    y += 24;
 
-    // FQN - subtle, small
-    ctr.add(this.add.text(innerX, y, nodeDef.fqn, {
-      fontFamily: FONT_BODY, fontSize: "13px", color: "#6070a0", wordWrap: { width: innerW },
+    // FQN - subtle, small, truncated to fit
+    const fqnParts = nodeDef.fqn.split(".");
+    const fqnShort = fqnParts.length > 2 ? `…${fqnParts.slice(-2).join(".")}` : nodeDef.fqn;
+    ctr.add(this.add.text(innerX, y, fqnShort, {
+      fontFamily: FONT_BODY, fontSize: "12px", color: "#505080", wordWrap: { width: innerW },
     }).setOrigin(0, 0));
-    y += 22;
+    y += 20;
 
     // Status row - colored dot + label
     const statusHex = parseInt(nodeDef.statusColor.slice(1), 16);
     const statusGfx = this.add.graphics();
     statusGfx.fillStyle(statusHex, 1);
-    statusGfx.fillCircle(innerX + 5, y + 9, 5);
-    statusGfx.fillStyle(statusHex, 0.3);
-    statusGfx.fillCircle(innerX + 5, y + 9, 9);
+    statusGfx.fillCircle(innerX + 5, y + 8, 5);
+    statusGfx.fillStyle(statusHex, 0.25);
+    statusGfx.fillCircle(innerX + 5, y + 8, 9);
     ctr.add(statusGfx);
-    ctr.add(this.add.text(innerX + 16, y, nodeDef.status, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: nodeDef.statusColor, letterSpacing: 1,
+    ctr.add(this.add.text(innerX + 18, y, nodeDef.status, {
+      fontFamily: FONT_BODY, fontSize: "15px", color: nodeDef.statusColor, letterSpacing: 1,
     }).setOrigin(0, 0));
-    y += 26;
+    y += 22;
 
     this._drawDivider(ctr, px, y, pw);
-    y += 12;
+    y += 10;
 
     // ─── HEALTH ────────────────────────────
     ctr.add(this.add.text(innerX, y, "HEALTH", {
-      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
     }).setOrigin(0, 0));
     ctr.add(this.add.text(innerX + innerW, y, `${nodeDef.healthPct}%`, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: nodeDef.statusColor,
+      fontFamily: FONT_BODY, fontSize: "15px", color: nodeDef.statusColor,
     }).setOrigin(1, 0));
-    y += 18;
+    y += 16;
 
-    // Health bar - taller, with highlight
-    const barH = 10;
+    const barH = 8;
     const healthTrackGfx = this.add.graphics();
     healthTrackGfx.fillStyle(0x12122a, 1);
     healthTrackGfx.fillRoundedRect(innerX, y, innerW, barH, 2);
@@ -908,65 +912,65 @@ class MapScene extends Phaser.Scene {
     const fillW = innerW * (nodeDef.healthPct / 100);
     healthTrackGfx.fillStyle(statusHex, 1);
     healthTrackGfx.fillRoundedRect(innerX, y, fillW, barH, 2);
-    healthTrackGfx.fillStyle(0xffffff, 0.18);
-    healthTrackGfx.fillRect(innerX, y, fillW, 3);
+    healthTrackGfx.fillStyle(0xffffff, 0.15);
+    healthTrackGfx.fillRect(innerX, y, fillW, 2);
     ctr.add(healthTrackGfx);
-    y += barH + 14;
+    y += barH + 12;
 
     this._drawDivider(ctr, px, y, pw);
-    y += 12;
+    y += 10;
 
     // ─── INFO GRID (2-column) ──────────────
     const colW = innerW / 2;
 
     ctr.add(this.add.text(innerX, y, "OWNER", {
-      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
     }).setOrigin(0, 0));
     ctr.add(this.add.text(innerX + colW, y, "LAST TEST", {
-      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
     }).setOrigin(0, 0));
-    y += 16;
+    y += 15;
 
     const ownerDisplay = this.liveData[nodeDef.key]?.owners?.[0]?.displayName ||
                          (nodeDef.role === "suspect" ? "test" : "—");
     const ownerColor = ownerDisplay === "test" ? "#ff8888" : "#e8c97e";
     ctr.add(this.add.text(innerX, y, ownerDisplay, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: ownerColor,
+      fontFamily: FONT_BODY, fontSize: "15px", color: ownerColor,
     }).setOrigin(0, 0));
 
     const testText = this.liveData[nodeDef.key]?.testResult || (nodeDef.role === "victim" ? "ABORTED" : "PASS");
     const testColor = testText.includes("PASS") ? "#00ff88" : "#ff4444";
     ctr.add(this.add.text(innerX + colW, y, testText, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: testColor,
+      fontFamily: FONT_BODY, fontSize: "15px", color: testColor,
     }).setOrigin(0, 0));
-    y += 24;
+    y += 22;
 
     const colCount = this.liveData[nodeDef.key]?.columns?.length || 0;
     ctr.add(this.add.text(innerX, y, "COLUMNS", {
-      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
     }).setOrigin(0, 0));
     ctr.add(this.add.text(innerX + colW, y, "SERVICE", {
-      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
     }).setOrigin(0, 0));
-    y += 16;
+    y += 15;
 
     ctr.add(this.add.text(innerX, y, `${colCount} fields`, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#aabbff",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#aabbff",
     }).setOrigin(0, 0));
     const svcType = this.liveData[nodeDef.key]?.serviceType || "—";
     ctr.add(this.add.text(innerX + colW, y, svcType, {
-      fontFamily: FONT_BODY, fontSize: "16px", color: "#aabbff",
+      fontFamily: FONT_BODY, fontSize: "15px", color: "#aabbff",
     }).setOrigin(0, 0));
-    y += 24;
+    y += 22;
 
     this._drawDivider(ctr, px, y, pw);
-    y += 12;
+    y += 10;
 
     // ─── LINEAGE ───────────────────────────
     ctr.add(this.add.text(innerX, y, "LINEAGE", {
-      fontFamily: FONT_BODY, fontSize: "12px", color: "#6070a0", letterSpacing: 2,
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#6070a0", letterSpacing: 2,
     }).setOrigin(0, 0));
-    y += 18;
+    y += 16;
 
     const inbound = EDGE_DEFS.find(e => e.to === nodeDef.key);
     const outbound = EDGE_DEFS.find(e => e.from === nodeDef.key);
@@ -1345,6 +1349,16 @@ class MapScene extends Phaser.Scene {
     this.dlgContainer.setVisible(true);
     this.dlgContainer.setDepth(10);
 
+    // Restore or set collect button state
+    const alreadyCollected = this.evidence.some(e => e.key === nodeDef.key);
+    if (alreadyCollected) {
+      this.dlgCollectText.setText("✓  COLLECTED").setColor("#44ff88");
+      this.dlgCollectZone.removeInteractive();
+    } else {
+      this.dlgCollectText.setText("COLLECT EVIDENCE").setColor("#88aaff");
+      this.dlgCollectZone.setInteractive({ useHandCursor: true });
+    }
+
     this.statusBar.setText(`Interviewing: ${nodeDef.label}`);
 
     // Fetch LLM dialogue if not already fetched
@@ -1379,13 +1393,10 @@ class MapScene extends Phaser.Scene {
       return;
     }
     this.evidence.push({ key, ...node });
-    this._updateEvidencePanel();
     this._closeDialogue();
     this._showEvidenceBoard();
     SFX.evidenceStamp();
     this.statusBar.setText("Evidence collected: " + node.evidenceTitle);
-
-    if (this.evidence.length >= 2) this._showAccuseButton();
   }
 
   _updateEvidencePanel() {
