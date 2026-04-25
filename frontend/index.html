@@ -556,6 +556,9 @@ class MapScene extends Phaser.Scene {
   init() {
     this.evidence = [];
     this.dialogueOpen = false;
+    this.richPanelContainer = null;  // Phaser container for the floating panel
+    this.richMode = "none";           // "none" | "info" | "evidence"
+    this.richCurrentNode = null;      // Currently selected node key
     this.liveData = {};
     this.dialogueLines = {};
     this.lineIndex = {};
