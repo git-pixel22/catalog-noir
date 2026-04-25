@@ -597,16 +597,13 @@ class MapScene extends Phaser.Scene {
       this.nodeGroups[n.key] = this._buildNode(n);
     });
 
-    // Evidence panel (right side)
-    this._buildEvidencePanel();
+    // Rich info panel (replaces evidence panel and accuse button)
+    this._buildRichInfoPanel();
 
     // Status bar
     this.statusBar = this.add.text(W / 2, H - 14, "Click a node to interview. Collect evidence to build your case.", {
       fontFamily: FONT_BODY, fontSize: "16px", color: "#a0a0c0",
     }).setOrigin(0.5);
-
-    // Accusation button (hidden until 2+ evidence)
-    this._buildAccuseButton();
 
     // Dialogue overlay (hidden)
     this._buildDialogueBox();
