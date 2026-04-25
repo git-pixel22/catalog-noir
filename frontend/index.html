@@ -849,6 +849,21 @@ class MapScene extends Phaser.Scene {
     let y = py + 16;
 
     // ─── HEADER ────────────────────────────
+    // Back-to-board link (top-right, only when evidence exists)
+    if (this.evidence.length > 0) {
+      const backLabel = this.add.text(px + pw - PAD, y, `← BOARD (${this.evidence.length})`, {
+        fontFamily: FONT_BODY, fontSize: "12px", color: "#e8c97e",
+      }).setOrigin(1, 0);
+      ctr.add(backLabel);
+      const backZone = this.add.zone(px + pw - PAD - 60, y + 7, 120, 16)
+        .setInteractive({ useHandCursor: true });
+      ctr.add(backZone);
+      backZone.on("pointerdown", () => this._showEvidenceBoard());
+      backZone.on("pointerover", () => backLabel.setColor("#ffffff"));
+      backZone.on("pointerout",  () => backLabel.setColor("#e8c97e"));
+    }
+    y += this.evidence.length > 0 ? 18 : 0;
+
     // Role badge pill
     const badgeGfx = this.add.graphics();
     const badgeText = nodeDef.badge;
@@ -1382,6 +1397,7 @@ class MapScene extends Phaser.Scene {
     this.currentNode = null;
     if (this._typeTimer) this._typeTimer.remove();
     this.statusBar.setText("Click a node to interview. Collect evidence to build your case.");
+    this._showEvidenceBoard();
   }
 
   _collectEvidence() {
