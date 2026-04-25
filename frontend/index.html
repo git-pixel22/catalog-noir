@@ -777,43 +777,56 @@ class MapScene extends Phaser.Scene {
   }
 
   _buildRichInfoPanel() {
-    const panelX = W - 20 - 210;  // right: 20, width: 210
-    const panelY = 40;            // top: 40
-    const panelW = 210, panelH = 510;
+    const panelW = 260, panelH = 540;
+    const panelX = W - 16 - panelW;  // right: 16
+    const panelY = 30;                // top: 30
 
     const ctr = this.add.container(0, 0).setDepth(10);
     this.richPanelContainer = ctr;
 
-    // Background
+    // Outer glow shadow
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.5);
+    shadow.fillRect(panelX + 3, panelY + 3, panelW, panelH);
+    ctr.add(shadow);
+
+    // Background panel
     const bg = this.add.graphics();
-    bg.fillStyle(0x08080f, 0.98);
+    bg.fillStyle(0x0a0a14, 0.98);
     bg.fillRect(panelX, panelY, panelW, panelH);
-    bg.lineStyle(1, 0x2a2a4a, 0.8);
+    bg.lineStyle(1, 0x2a2a4a, 0.9);
     bg.strokeRect(panelX, panelY, panelW, panelH);
     ctr.add(bg);
 
-    // Top accent bar (gradient approx)
+    // Top accent gradient bar (4px tall)
     const bar = this.add.graphics();
-    bar.fillStyle(0x4466ff, 0.8);
-    bar.fillRect(panelX, panelY, panelW / 2, 3);
-    bar.fillStyle(0xaa44ff, 0.8);
-    bar.fillRect(panelX + panelW / 2, panelY, panelW / 2, 3);
+    const segs = 20;
+    for (let i = 0; i < segs; i++) {
+      const t = i / (segs - 1);
+      const r = Math.floor(0x44 + (0xaa - 0x44) * t);
+      const g = Math.floor(0x66 + (0x44 - 0x66) * t);
+      const b = Math.floor(0xff + (0xff - 0xff) * t);
+      const col = (r << 16) | (g << 8) | b;
+      bar.fillStyle(col, 0.95);
+      bar.fillRect(panelX + (panelW * i) / segs, panelY, panelW / segs + 1, 4);
+    }
     ctr.add(bar);
 
-    // Content area (will be populated by _showRichInfo or _showEvidenceBoard)
-    const contentZone = this.add.zone(panelX, panelY + 20, panelW, panelH - 20).setOrigin(0, 0);
-    ctr.add(contentZone);
-
-    // Store panel metadata for later reference
-    ctr.x = 0;
-    ctr.y = 0;
+    // Store panel metadata
     ctr.panelX = panelX;
     ctr.panelY = panelY;
     ctr.panelW = panelW;
     ctr.panelH = panelH;
 
-    // Show default state (evidence board empty)
+    // Show default state
     this._showEvidenceBoard();
+  }
+
+  _drawDivider(ctr, px, py, pw) {
+    const g = this.add.graphics();
+    g.lineStyle(1, 0x1a1a3a, 0.8);
+    g.lineBetween(px + 16, py, px + pw - 16, py);
+    ctr.add(g);
   }
 
   _showRichInfo(nodeDef) {
@@ -823,130 +836,242 @@ class MapScene extends Phaser.Scene {
     const ctr = this.richPanelContainer;
     const px = ctr.panelX, py = ctr.panelY, pw = ctr.panelW;
 
-    // Clear previous content (destroy all children except bg/bar)
+    // Clear previous content (destroy all children except shadow/bg/bar)
     ctr.getAll().forEach((obj, idx) => {
-      if (idx > 1) obj.destroy();  // Keep bg (0) and bar (1)
+      if (idx > 2) obj.destroy();
     });
 
-    const contentY = py + 20;
-    let currentY = contentY + 6;
+    const PAD = 16;
+    const innerX = px + PAD;
+    const innerW = pw - PAD * 2;
+    let y = py + 16;
 
-    // Node name (large, prominent)
-    ctr.add(this.add.text(px + 10, currentY, nodeDef.label, {
-      fontFamily: FONT_TITLE, fontSize: "12px", color: "#e8c97e", letterSpacing: 1,
+    // ─── HEADER ────────────────────────────
+    // Role badge pill
+    const roleColor = parseInt(nodeDef.color.toString(16).padStart(6, "0").slice(0, 6), 16) || 0x9090b8;
+    const badgeGfx = this.add.graphics();
+    const badgeText = nodeDef.badge;
+    const badgeW = badgeText.length * 6 + 12;
+    badgeGfx.fillStyle(nodeDef.color, 0.18);
+    badgeGfx.fillRoundedRect(innerX, y, badgeW, 16, 2);
+    badgeGfx.lineStyle(1, nodeDef.color, 0.6);
+    badgeGfx.strokeRoundedRect(innerX, y, badgeW, 16, 2);
+    ctr.add(badgeGfx);
+    ctr.add(this.add.text(innerX + badgeW / 2, y + 8, badgeText, {
+      fontFamily: FONT_BODY, fontSize: "12px", color: "#" + nodeDef.color.toString(16).padStart(6, "0"), letterSpacing: 1,
+    }).setOrigin(0.5, 0.5));
+    y += 22;
+
+    // Node label - prominent
+    ctr.add(this.add.text(innerX, y, nodeDef.label, {
+      fontFamily: FONT_BODY, fontSize: "20px", color: "#ffffff", letterSpacing: 0,
     }).setOrigin(0, 0));
-    currentY += 14;
+    y += 22;
 
-    // Status dot + label
+    // FQN - subtle, small
+    ctr.add(this.add.text(innerX, y, nodeDef.fqn, {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", wordWrap: { width: innerW },
+    }).setOrigin(0, 0));
+    y += 22;
+
+    // Status row - colored dot + label
+    const statusHex = parseInt(nodeDef.statusColor.slice(1), 16);
     const statusGfx = this.add.graphics();
-    const dotX = px + 10, dotY = currentY + 3;
-    statusGfx.fillStyle(parseInt(nodeDef.statusColor.slice(1), 16), 0.9);
-    statusGfx.fillCircle(dotX, dotY, 3);
+    statusGfx.fillStyle(statusHex, 1);
+    statusGfx.fillCircle(innerX + 4, y + 7, 4);
+    statusGfx.fillStyle(statusHex, 0.3);
+    statusGfx.fillCircle(innerX + 4, y + 7, 7);
     ctr.add(statusGfx);
-    ctr.add(this.add.text(dotX + 10, currentY, nodeDef.status, {
-      fontFamily: FONT_BODY, fontSize: "9px", color: nodeDef.statusColor, letterSpacing: 1,
+    ctr.add(this.add.text(innerX + 14, y, nodeDef.status, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: nodeDef.statusColor, letterSpacing: 1,
     }).setOrigin(0, 0));
-    currentY += 12;
+    y += 22;
 
-    // Health bar with label
-    ctr.add(this.add.text(px + 10, currentY, "HEALTH", {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#5060a0", letterSpacing: 1,
+    this._drawDivider(ctr, px, y, pw);
+    y += 12;
+
+    // ─── HEALTH ────────────────────────────
+    ctr.add(this.add.text(innerX, y, "HEALTH", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
     }).setOrigin(0, 0));
-    currentY += 10;
+    ctr.add(this.add.text(innerX + innerW, y, `${nodeDef.healthPct}%`, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: nodeDef.statusColor,
+    }).setOrigin(1, 0));
+    y += 16;
 
+    // Health bar - taller, with gradient
+    const barH = 8;
     const healthTrackGfx = this.add.graphics();
-    healthTrackGfx.fillStyle(0x1a1a2a, 0.8);
-    healthTrackGfx.fillRect(px + 10, currentY, pw - 20, 6);
-    const healthColor = nodeDef.statusColor === "#00ff88" ? 0x00cc66 :
-                        nodeDef.statusColor === "#ff44ff" ? 0xaa44ff :
-                        nodeDef.statusColor === "#ff2244" ? 0xff2244 : 0xffcc00;
-    healthTrackGfx.fillStyle(healthColor, 0.9);
-    healthTrackGfx.fillRect(px + 10, currentY, (pw - 20) * (nodeDef.healthPct / 100), 6);
+    healthTrackGfx.fillStyle(0x12122a, 1);
+    healthTrackGfx.fillRoundedRect(innerX, y, innerW, barH, 1);
+    healthTrackGfx.lineStyle(1, 0x2a2a4a, 0.6);
+    healthTrackGfx.strokeRoundedRect(innerX, y, innerW, barH, 1);
+    const fillW = innerW * (nodeDef.healthPct / 100);
+    healthTrackGfx.fillStyle(statusHex, 1);
+    healthTrackGfx.fillRoundedRect(innerX, y, fillW, barH, 1);
+    healthTrackGfx.fillStyle(0xffffff, 0.15);
+    healthTrackGfx.fillRect(innerX, y, fillW, 2);
     ctr.add(healthTrackGfx);
-    currentY += 10;
+    y += barH + 14;
 
-    ctr.add(this.add.text(px + 10, currentY, `${nodeDef.healthPct}%`, {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#aabbff",
-    }).setOrigin(0, 0));
-    currentY += 12;
+    this._drawDivider(ctr, px, y, pw);
+    y += 12;
 
-    // Owner
-    ctr.add(this.add.text(px + 10, currentY, "OWNER", {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#5060a0", letterSpacing: 1,
-    }).setOrigin(0, 0));
-    currentY += 10;
-    const owner = this.liveData[nodeDef.key]?.owners?.[0]?.displayName || "Unknown";
-    ctr.add(this.add.text(px + 10, currentY, owner, {
-      fontFamily: FONT_BODY, fontSize: "9px", color: "#e8c97e",
-    }).setOrigin(0, 0));
-    currentY += 12;
+    // ─── INFO GRID (2-column) ──────────────
+    const colW = innerW / 2;
 
-    // Last test
-    ctr.add(this.add.text(px + 10, currentY, "LAST TEST", {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#5060a0", letterSpacing: 1,
+    // Owner (left col)
+    ctr.add(this.add.text(innerX, y, "OWNER", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
     }).setOrigin(0, 0));
-    currentY += 10;
-    const testText = this.liveData[nodeDef.key]?.testResult || "PASS";
+    // Last test (right col)
+    ctr.add(this.add.text(innerX + colW, y, "LAST TEST", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 14;
+
+    const owner = this.liveData[nodeDef.key]?.owners?.[0]?.displayName || nodeDef.role === "suspect" ? "test" : "Loading…";
+    const ownerDisplay = this.liveData[nodeDef.key]?.owners?.[0]?.displayName ||
+                         (nodeDef.role === "suspect" ? "test" : "—");
+    const ownerColor = ownerDisplay === "test" ? "#ff8888" : "#e8c97e";
+    ctr.add(this.add.text(innerX, y, ownerDisplay, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: ownerColor,
+    }).setOrigin(0, 0));
+
+    const testText = this.liveData[nodeDef.key]?.testResult || (nodeDef.role === "victim" ? "ABORTED" : "PASS");
     const testColor = testText.includes("PASS") ? "#00ff88" : "#ff4444";
-    ctr.add(this.add.text(px + 10, currentY, testText, {
-      fontFamily: FONT_BODY, fontSize: "9px", color: testColor,
+    ctr.add(this.add.text(innerX + colW, y, testText, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: testColor,
     }).setOrigin(0, 0));
-    currentY += 12;
+    y += 22;
 
-    // Columns (brief)
+    // Columns count + Tier
     const colCount = this.liveData[nodeDef.key]?.columns?.length || 0;
-    ctr.add(this.add.text(px + 10, currentY, `COLUMNS: ${colCount}`, {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#aabbff",
+    ctr.add(this.add.text(innerX, y, "COLUMNS", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
     }).setOrigin(0, 0));
-    currentY += 12;
+    ctr.add(this.add.text(innerX + colW, y, "SERVICE", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 14;
 
-    // Dependencies (brief)
+    ctr.add(this.add.text(innerX, y, `${colCount} fields`, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#aabbff",
+    }).setOrigin(0, 0));
+    const svcType = this.liveData[nodeDef.key]?.serviceType || "—";
+    ctr.add(this.add.text(innerX + colW, y, svcType, {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#aabbff",
+    }).setOrigin(0, 0));
+    y += 22;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 12;
+
+    // ─── LINEAGE ───────────────────────────
+    ctr.add(this.add.text(innerX, y, "LINEAGE", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 16;
+
     const inbound = EDGE_DEFS.find(e => e.to === nodeDef.key);
     const outbound = EDGE_DEFS.find(e => e.from === nodeDef.key);
     const inboundLabel = inbound ? NODE_DEFS.find(n => n.key === inbound.from)?.label || inbound.from : "—";
     const outboundLabel = outbound ? NODE_DEFS.find(n => n.key === outbound.to)?.label || outbound.to : "—";
-    ctr.add(this.add.text(px + 10, currentY, `FROM: ${inboundLabel}`, {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#ccccff",
-    }).setOrigin(0, 0));
-    currentY += 10;
-    ctr.add(this.add.text(px + 10, currentY, `TO: ${outboundLabel}`, {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#ccccff",
-    }).setOrigin(0, 0));
-    currentY += 12;
 
-    // INTERVIEW button (not for victim node)
+    ctr.add(this.add.text(innerX, y, "↑", {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#6070a0",
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + 16, y, inboundLabel, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: inbound ? "#ccccff" : "#404060",
+    }).setOrigin(0, 0));
+    if (inbound) {
+      const badge = nodeDef.edgeBadges?.[inbound.from];
+      if (badge) {
+        const badgeColor = badge === "DUPLICATE" ? "#ff4488" : "#00ff88";
+        const badgeBgColor = badge === "DUPLICATE" ? 0x441122 : 0x114422;
+        const bw = badge.length * 6 + 8;
+        const bg2 = this.add.graphics();
+        bg2.fillStyle(badgeBgColor, 0.8);
+        bg2.fillRoundedRect(innerX + innerW - bw, y, bw, 14, 2);
+        ctr.add(bg2);
+        ctr.add(this.add.text(innerX + innerW - bw / 2, y + 7, badge, {
+          fontFamily: FONT_BODY, fontSize: "10px", color: badgeColor, letterSpacing: 1,
+        }).setOrigin(0.5, 0.5));
+      }
+    }
+    y += 18;
+
+    ctr.add(this.add.text(innerX, y, "↓", {
+      fontFamily: FONT_BODY, fontSize: "14px", color: "#6070a0",
+    }).setOrigin(0, 0));
+    ctr.add(this.add.text(innerX + 16, y, outboundLabel, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: outbound ? "#ccccff" : "#404060",
+    }).setOrigin(0, 0));
+    y += 22;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 12;
+
+    // ─── DIAGNOSTIC ────────────────────────
+    ctr.add(this.add.text(innerX, y, "DIAGNOSTIC", {
+      fontFamily: FONT_BODY, fontSize: "11px", color: "#5060a0", letterSpacing: 2,
+    }).setOrigin(0, 0));
+    y += 14;
+
+    // Callout box for diagnostic
+    const diagText = this.add.text(innerX + 8, y + 6, nodeDef.diagnostic, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#c8c8e0",
+      wordWrap: { width: innerW - 16 }, lineSpacing: 2,
+    }).setOrigin(0, 0);
+    const diagH = diagText.height + 12;
+    const diagBg = this.add.graphics();
+    diagBg.fillStyle(0x12122a, 0.6);
+    diagBg.fillRoundedRect(innerX, y, innerW, diagH, 2);
+    diagBg.lineStyle(1, nodeDef.color, 0.3);
+    diagBg.strokeRoundedRect(innerX, y, innerW, diagH, 2);
+    // Left accent stripe
+    diagBg.fillStyle(nodeDef.color, 0.7);
+    diagBg.fillRect(innerX, y, 2, diagH);
+    ctr.add(diagBg);
+    ctr.add(diagText);
+    y += diagH + 14;
+
+    // ─── INTERVIEW BUTTON ──────────────────
     if (nodeDef.role !== "victim") {
+      const btnH = 32;
       const btnGfx = this.add.graphics();
-      const btnX = px + 10, btnY = currentY, btnW = pw - 20, btnH = 18;
-      btnGfx.fillStyle(0x1a1a3a, 0.9);
-      btnGfx.fillRect(btnX, btnY, btnW, btnH);
-      btnGfx.lineStyle(1, 0x4466ff, 0.7);
-      btnGfx.strokeRect(btnX, btnY, btnW, btnH);
+      const drawBtn = (hover) => {
+        btnGfx.clear();
+        btnGfx.fillStyle(hover ? 0x2a3a8a : 0x1a2050, 1);
+        btnGfx.fillRoundedRect(innerX, y, innerW, btnH, 3);
+        btnGfx.lineStyle(1, hover ? 0x88aaff : 0x4466ff, hover ? 1 : 0.8);
+        btnGfx.strokeRoundedRect(innerX, y, innerW, btnH, 3);
+        // Top highlight
+        btnGfx.fillStyle(0xffffff, hover ? 0.12 : 0.06);
+        btnGfx.fillRect(innerX + 2, y + 2, innerW - 4, 2);
+      };
+      drawBtn(false);
       ctr.add(btnGfx);
 
-      const btnText = ctr.add(this.add.text(btnX + btnW / 2, btnY + btnH / 2, "▶ INTERVIEW", {
-        fontFamily: FONT_BODY, fontSize: "9px", color: "#aabbff", letterSpacing: 2, align: "center",
-      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true }));
+      const btnText = this.add.text(innerX + innerW / 2, y + btnH / 2, "▶  INTERVIEW", {
+        fontFamily: FONT_BODY, fontSize: "16px", color: "#aaccff", letterSpacing: 3, align: "center",
+      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+      ctr.add(btnText);
 
-      btnText.on("pointerdown", () => {
-        this._openDialogue(nodeDef);
-      });
-
-      btnText.on("pointerover", () => {
-        btnGfx.clear();
-        btnGfx.fillStyle(0x22224a, 0.9);
-        btnGfx.fillRect(btnX, btnY, btnW, btnH);
-        btnGfx.lineStyle(1, 0x4466ff, 0.8);
-        btnGfx.strokeRect(btnX, btnY, btnW, btnH);
-      });
-
-      btnText.on("pointerout", () => {
-        btnGfx.clear();
-        btnGfx.fillStyle(0x1a1a3a, 0.9);
-        btnGfx.fillRect(btnX, btnY, btnW, btnH);
-        btnGfx.lineStyle(1, 0x4466ff, 0.7);
-        btnGfx.strokeRect(btnX, btnY, btnW, btnH);
-      });
+      btnText.on("pointerdown", () => this._openDialogue(nodeDef));
+      btnText.on("pointerover", () => { drawBtn(true); btnText.setColor("#ffffff"); });
+      btnText.on("pointerout",  () => { drawBtn(false); btnText.setColor("#aaccff"); });
+    } else {
+      // Victim notice
+      const noticeGfx = this.add.graphics();
+      noticeGfx.fillStyle(0x2a0a14, 0.6);
+      noticeGfx.fillRoundedRect(innerX, y, innerW, 24, 3);
+      noticeGfx.lineStyle(1, 0xff2244, 0.4);
+      noticeGfx.strokeRoundedRect(innerX, y, innerW, 24, 3);
+      ctr.add(noticeGfx);
+      ctr.add(this.add.text(innerX + innerW / 2, y + 12, "⚠  VICTIM — UNINTERVIEWABLE", {
+        fontFamily: FONT_BODY, fontSize: "12px", color: "#ff8899", letterSpacing: 1, align: "center",
+      }).setOrigin(0.5, 0.5));
     }
   }
 
@@ -957,83 +1082,140 @@ class MapScene extends Phaser.Scene {
     const ctr = this.richPanelContainer;
     const px = ctr.panelX, py = ctr.panelY, pw = ctr.panelW, ph = ctr.panelH;
 
-    // Clear previous content (destroy all children except bg/bar)
+    // Clear previous content (destroy all children except shadow/bg/bar)
     ctr.getAll().forEach((obj, idx) => {
-      if (idx > 1) obj.destroy();
+      if (idx > 2) obj.destroy();
     });
 
-    const contentY = py + 20;
-    let currentY = contentY + 8;
+    const PAD = 16;
+    const innerX = px + PAD;
+    const innerW = pw - PAD * 2;
+    let y = py + 16;
 
-    // Header
-    ctr.add(this.add.text(px + 10, currentY, `EVIDENCE (${this.evidence.length})`, {
-      fontFamily: FONT_BODY, fontSize: "8px", color: "#e8c97e", letterSpacing: 1,
+    // ─── HEADER ────────────────────────────
+    ctr.add(this.add.text(innerX, y, "EVIDENCE BOARD", {
+      fontFamily: FONT_BODY, fontSize: "13px", color: "#e8c97e", letterSpacing: 2,
     }).setOrigin(0, 0));
-    currentY += 16;
+    // Counter badge
+    const cnt = this.evidence.length;
+    const cntBg = this.add.graphics();
+    const cntW = 28;
+    cntBg.fillStyle(cnt > 0 ? 0x4a3a0a : 0x1a1a2a, 0.9);
+    cntBg.fillRoundedRect(innerX + innerW - cntW, y - 1, cntW, 16, 8);
+    ctr.add(cntBg);
+    ctr.add(this.add.text(innerX + innerW - cntW / 2, y + 7, `${cnt}`, {
+      fontFamily: FONT_BODY, fontSize: "13px", color: cnt > 0 ? "#ffd88a" : "#5060a0", align: "center",
+    }).setOrigin(0.5, 0.5));
+    y += 24;
 
-    // Evidence cards
+    ctr.add(this.add.text(innerX, y, "Click nodes → INTERVIEW → COLLECT", {
+      fontFamily: FONT_BODY, fontSize: "12px", color: "#5060a0", wordWrap: { width: innerW },
+    }).setOrigin(0, 0));
+    y += 20;
+
+    this._drawDivider(ctr, px, y, pw);
+    y += 14;
+
+    // ─── EVIDENCE LIST ─────────────────────
     if (this.evidence.length === 0) {
-      ctr.add(this.add.text(px + 10, currentY, "No evidence collected.", {
-        fontFamily: FONT_BODY, fontSize: "9px", color: "#5060a0", wordWrap: { width: pw - 20 },
-      }).setOrigin(0, 0));
+      // Empty state
+      const emptyGfx = this.add.graphics();
+      emptyGfx.fillStyle(0x12122a, 0.4);
+      emptyGfx.fillRoundedRect(innerX, y, innerW, 80, 4);
+      emptyGfx.lineStyle(1, 0x2a2a4a, 0.6);
+      emptyGfx.strokeRoundedRect(innerX, y, innerW, 80, 4);
+      ctr.add(emptyGfx);
+      ctr.add(this.add.text(innerX + innerW / 2, y + 28, "📁", {
+        fontFamily: FONT_BODY, fontSize: "20px", color: "#3a3a5a",
+      }).setOrigin(0.5, 0.5));
+      ctr.add(this.add.text(innerX + innerW / 2, y + 56, "NO EVIDENCE COLLECTED", {
+        fontFamily: FONT_BODY, fontSize: "12px", color: "#5060a0", letterSpacing: 1,
+      }).setOrigin(0.5, 0.5));
+      y += 92;
     } else {
-      this.evidence.forEach(ev => {
-        // Card background
+      this.evidence.forEach((ev, idx) => {
+        // Card background with left accent
+        const cardH = 52;
         const cardGfx = this.add.graphics();
-        cardGfx.fillStyle(0x12122a, 0.8);
-        cardGfx.fillRect(px + 6, currentY, pw - 12, 36);
-        cardGfx.lineStyle(1, 0x2a3a6a, 0.6);
-        cardGfx.strokeRect(px + 6, currentY, pw - 12, 36);
+        cardGfx.fillStyle(0x12122a, 0.9);
+        cardGfx.fillRoundedRect(innerX, y, innerW, cardH, 3);
+        cardGfx.lineStyle(1, 0x2a3a6a, 0.7);
+        cardGfx.strokeRoundedRect(innerX, y, innerW, cardH, 3);
+        // Gold accent stripe
+        cardGfx.fillStyle(0xe8c97e, 0.8);
+        cardGfx.fillRect(innerX, y, 3, cardH);
+        // Number badge
+        cardGfx.fillStyle(0x2a2a4a, 0.9);
+        cardGfx.fillCircle(innerX + 16, y + 14, 8);
         ctr.add(cardGfx);
+        ctr.add(this.add.text(innerX + 16, y + 14, `${idx + 1}`, {
+          fontFamily: FONT_BODY, fontSize: "12px", color: "#e8c97e",
+        }).setOrigin(0.5, 0.5));
 
         // Title
-        ctr.add(this.add.text(px + 10, currentY + 4, ev.evidenceTitle, {
-          fontFamily: FONT_BODY, fontSize: "8px", color: "#e8c97e",
+        ctr.add(this.add.text(innerX + 30, y + 7, ev.evidenceTitle, {
+          fontFamily: FONT_BODY, fontSize: "13px", color: "#e8c97e", letterSpacing: 1,
         }).setOrigin(0, 0));
 
-        // Text
-        ctr.add(this.add.text(px + 10, currentY + 14, ev.evidenceText, {
-          fontFamily: FONT_BODY, fontSize: "7px", color: "#9090b8", wordWrap: { width: pw - 20 },
+        // Body text
+        ctr.add(this.add.text(innerX + 10, y + 24, ev.evidenceText, {
+          fontFamily: FONT_BODY, fontSize: "12px", color: "#9090b8",
+          wordWrap: { width: innerW - 20 }, lineSpacing: 1,
         }).setOrigin(0, 0));
 
-        currentY += 40;
+        y += cardH + 8;
       });
     }
 
-    // MAKE ACCUSATION button (if 2+ evidence)
+    // ─── MAKE ACCUSATION BUTTON ────────────
     if (this.evidence.length >= 2) {
-      currentY += 8;
+      y += 4;
+      const btnH = 36;
       const accGfx = this.add.graphics();
-      const accX = px + 6, accY = currentY, accW = pw - 12, accH = 20;
-      accGfx.fillStyle(0x1a1a3a, 0.9);
-      accGfx.fillRect(accX, accY, accW, accH);
-      accGfx.lineStyle(1, 0xff2244, 0.8);
-      accGfx.strokeRect(accX, accY, accW, accH);
+      let pulse = 0;
+
+      const drawBtn = (intensity) => {
+        accGfx.clear();
+        // Glow
+        accGfx.fillStyle(0xff2244, 0.15 + intensity * 0.1);
+        accGfx.fillRoundedRect(innerX - 2, y - 2, innerW + 4, btnH + 4, 4);
+        // Body
+        accGfx.fillStyle(0x4a0a14, 1);
+        accGfx.fillRoundedRect(innerX, y, innerW, btnH, 3);
+        accGfx.lineStyle(1.5, 0xff2244, 0.9 + intensity * 0.1);
+        accGfx.strokeRoundedRect(innerX, y, innerW, btnH, 3);
+        // Top highlight
+        accGfx.fillStyle(0xff8888, 0.12 + intensity * 0.08);
+        accGfx.fillRect(innerX + 2, y + 2, innerW - 4, 2);
+      };
+      drawBtn(0);
       ctr.add(accGfx);
 
-      const accText = ctr.add(this.add.text(accX + accW / 2, accY + accH / 2, "MAKE ACCUSATION", {
-        fontFamily: FONT_BODY, fontSize: "8px", color: "#ff8888", letterSpacing: 1, align: "center",
-      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true }));
+      // Pulsing tween
+      this.tweens.add({
+        targets: { v: 0 },
+        v: 1,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        onUpdate: tw => drawBtn(tw.getValue()),
+      });
+
+      const accText = this.add.text(innerX + innerW / 2, y + btnH / 2, "▶  MAKE ACCUSATION", {
+        fontFamily: FONT_BODY, fontSize: "16px", color: "#ffaaaa", letterSpacing: 3, align: "center",
+      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+      ctr.add(accText);
 
       accText.on("pointerdown", () => {
         this.scene.start("AccusationScene", { evidence: this.evidence });
       });
-
-      accText.on("pointerover", () => {
-        accGfx.clear();
-        accGfx.fillStyle(0x220a0a, 0.9);
-        accGfx.fillRect(accX, accY, accW, accH);
-        accGfx.lineStyle(1, 0xff2244, 0.9);
-        accGfx.strokeRect(accX, accY, accW, accH);
-      });
-
-      accText.on("pointerout", () => {
-        accGfx.clear();
-        accGfx.fillStyle(0x1a1a3a, 0.9);
-        accGfx.fillRect(accX, accY, accW, accH);
-        accGfx.lineStyle(1, 0xff2244, 0.8);
-        accGfx.strokeRect(accX, accY, accW, accH);
-      });
+      accText.on("pointerover", () => accText.setColor("#ffffff"));
+      accText.on("pointerout",  () => accText.setColor("#ffaaaa"));
+    } else if (this.evidence.length === 1) {
+      // Hint
+      ctr.add(this.add.text(innerX + innerW / 2, y + 8, "Need 1 more piece of evidence", {
+        fontFamily: FONT_BODY, fontSize: "12px", color: "#5060a0", align: "center",
+      }).setOrigin(0.5, 0));
     }
   }
 
